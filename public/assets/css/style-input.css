@@ -1,0 +1,27 @@
+/* Import du framework Tailwind CSS */
+@import "tailwindcss";
+
+/* Variables CSS */
+:root {
+    --bg-primary: #081c15;
+    --bg-secondary: #1b4332;
+    --font-color: #dadada;
+    --font-alternate-color: #1e1e1e;
+    --rarity-color-5: #e9af67;
+    --rarity-color-4: #bdabd4;
+    --rarity-color-3: #009cf0;
+    --rarity-color-2: rgb(134, 250, 134);
+    --rarity-color-1: gray;
+    --main-min-height: calc(100dvh - 80px - 40px);
+}
+
+/* Polices de caractères */
+@font-face {
+    font-family: "RobotoCondensed";
+    src: url(../font/RobotoCondensed-Bold.ttf);
+}
+
+@font-face {
+    font-family: "Roboto";
+    src: url(../font/Roboto-Regular.ttf);
+}

@@ -1,0 +1,47 @@
+services:
+    php:
+        container_name: php-container
+        image: genshinteam
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - ./:/var/www/html
+        environment:
+            XDEBUG_MODE: ${XDEBUG_MODE}
+            XDEBUG_CONFIG: ${XDEBUG_CONFIG}
+        ports:
+            - "80:80"
+        networks:
+            - app-network
+
+    mysql:
+        container_name: mysql-container
+        image: mysql
+        volumes:
+            - ./database:/var/lib/mysql
+        environment:
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        networks:
+            - app-network
+
+    phpmyadmin:
+        container_name: phpmyadmin-container
+        image: phpmyadmin
+        depends_on:
+            - mysql
+        environment:
+            PMA_HOST: ${PMA_HOST}
+            PMA_USER: ${PMA_USER}
+            PMA_PASSWORD: ${PMA_PASSWORD}
+        ports:
+            - "8080:80"
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge

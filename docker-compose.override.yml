@@ -1,0 +1,10 @@
+services:
+    phpunit:
+        image: php:apache
+        container_name: phpunit-container
+        volumes:
+            - .:/var/www/html
+        working_dir: /var/www/html
+        networks:
+            - app-network
+        entrypoint: ["vendor/bin/phpunit"]

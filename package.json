@@ -1,0 +1,15 @@
+{
+    "scripts": {
+        "tailwind": "npx @tailwindcss/cli -i ./public/assets/css/style-input.css -o ./public/assets/css/style.css --watch"
+    },
+    "dependencies": {
+        "@tailwindcss/cli": "^4.1.7",
+        "tailwindcss": "^4.1.7"
+    },
+    "devDependencies": {
+        "@prettier/plugin-php": "^0.22.4",
+        "@prettier/plugin-xml": "^3.4.1",
+        "prettier": "^3.5.3",
+        "prettier-plugin-tailwindcss": "^0.6.11"
+    }
+}

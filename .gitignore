@@ -1,0 +1,9 @@
+.vscode/
+coverage-report
+database/
+logs/
+node_modules/
+vendor/
+.env
+.phpunit.result.cache
+.prettierrc.js

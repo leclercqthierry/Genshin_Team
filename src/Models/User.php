@@ -1,0 +1,126 @@
+<?php
+declare (strict_types = 1);
+
+namespace GenshinTeam\Models;
+
+use Exception;
+use GenshinTeam\Database\Database;
+use GenshinTeam\Utils\ErrorHandler;
+use PDO;
+use PDOException;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Class User
+ *
+ * Ce modèle gère les opérations liées aux utilisateurs dans la base de données.
+ * Il s'appuie sur une connexion PDO obtenue via la classe Database (qui implémente le pattern Singleton)
+ * pour effectuer des opérations comme la création d'un nouvel utilisateur et la récupération d'un utilisateur
+ * en fonction de son pseudo.
+ *
+ * @package GenshinTeam\Models
+ */
+class User
+{
+    /**
+     * Instance PDO pour accéder à la base de données.
+     *
+     * @var PDO
+     */
+    private PDO $pdo;
+
+    private LoggerInterface $logger;
+
+    /**
+     * Constructeur.
+     *
+     * Établit la connexion à la base de données en récupérant l'instance PDO via la classe Database.
+     *
+     * @throws Exception Si la connexion à la base de données échoue.
+     */
+    public function __construct(LoggerInterface $logger)
+    {
+        $this->pdo    = Database::getInstance();
+        $this->logger = $logger;
+    }
+
+    /**
+     * Enregistre un nouvel utilisateur dans la base de données.
+     *
+     * Prépare et exécute une requête SQL d'insertion afin de créer un nouvel utilisateur.
+     *
+     * @param string $nickname       Le pseudo de l'utilisateur.
+     * @param string $email          L'email de l'utilisateur.
+     * @param string $hashedPassword Le mot de passe préalablement hashé.
+     *
+     * @return bool Renvoie true en cas de succès, false sinon.
+     */
+    public function createUser(string $nickname, string $email, string $hashedPassword): bool
+    {
+        try {
+            $sql  = "INSERT INTO zell_users (nickname, email, password, id_role) VALUES (:nickname, :email, :password, :id_role)";
+            $stmt = $this->pdo->prepare($sql);
+            return $stmt->execute([
+                ':nickname' => $nickname,
+                ':email'    => $email,
+                ':password' => $hashedPassword,
+                ':id_role'  => 2, // 2 correspond au rôle de Membre
+            ]);
+        } catch (PDOException $e) {
+            (new ErrorHandler($this->logger))->handle($e);
+            return false; // ou null selon la méthode
+        }
+    }
+
+    /**
+     * Récupère les informations d'un utilisateur à partir de son pseudo.
+     *
+     * Exécute une requête SQL de sélection pour récupérer un utilisateur dont le pseudo correspond à la valeur donnée.
+     * La requête est limitée à un résultat (LIMIT 1). Si aucun utilisateur n'est trouvé, la méthode renvoie null.
+     *
+     * @param string $nickname Le pseudo de l'utilisateur.
+     *
+     * @return array<string, mixed>|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
+     */
+    public function getUserByNickname(string $nickname): ?array
+    {
+        try {
+            $sql  = "SELECT * FROM zell_users WHERE nickname = :nickname LIMIT 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':nickname' => $nickname]);
+
+            /** @var array<string, mixed>|false $user */
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $user !== false ? $user : null;
+        } catch (PDOException $e) {
+            (new ErrorHandler($this->logger))->handle($e);
+            return null;
+        }
+    }
+
+    /**
+     * Récupère les informations d'un utilisateur à partir de son email.
+     *
+     * Exécute une requête SQL de sélection pour récupérer un utilisateur dont l'email correspond à la valeur donnée.
+     * La requête est limitée à un résultat (LIMIT 1). Si aucun utilisateur n'est trouvé, la méthode renvoie null.
+     *
+     * @param string $email L'email de l'utilisateur.
+     *
+     * @return array<string, mixed>|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
+     */
+    public function getUserByEmail(string $email): ?array
+    {
+        try {
+            $sql  = "SELECT * FROM zell_users WHERE email = :email LIMIT 1";
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute([':email' => $email]);
+
+            /** @var array<string, mixed>|false $user */
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $user !== false ? $user : null;
+        } catch (PDOException $e) {
+            (new ErrorHandler($this->logger))->handle($e);
+            return null;
+        }
+    }
+}
