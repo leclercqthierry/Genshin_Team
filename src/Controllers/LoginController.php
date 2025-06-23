@@ -110,10 +110,11 @@ class LoginController extends AbstractController
         $this->addData('errors', $this->getErrors());
 
         // Passage du jeton CSRF, des erreurs et de la saisie précédente à la vue 'login'
+        $csrf_token = $this->session->get('csrf_token');
         $this->addData('content', $this->renderer->render(
             'login',
             [
-                'csrf_token' => $this->session->get('csrf_token'),
+                'csrf_token' => $csrf_token,
                 'errors'     => $this->getErrors(),
                 'old'        => $old,
             ]
@@ -145,6 +146,7 @@ class LoginController extends AbstractController
      */
     protected function handleLogin(): void
     {
+
         // Vérification du jeton CSRF afin d'éviter les attaques de type Cross-Site Request Forgery
         if (! $this->isCsrfTokenValid()) {
             $this->addError('global', "Requête invalide ! Veuillez réessayer.");

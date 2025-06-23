@@ -13,6 +13,11 @@ namespace GenshinTeam\Session;
  */
 class SessionManager
 {
+    public function __construct()
+    {
+        $this->start();
+    }
+
     /**
      * Démarre la session si elle n'est pas déjà active.
      *

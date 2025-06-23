@@ -1,5 +1,5 @@
 .vscode/
-coverage-report
+coverage-report/
 database/
 logs/
 node_modules/
