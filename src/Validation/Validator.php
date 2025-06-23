@@ -4,64 +4,54 @@ declare (strict_types = 1);
 namespace GenshinTeam\Validation;
 
 /**
- * Classe Validator centralisant la validation des champs de formulaire.
- *
- * Permet de valider différents types de champs (requis, email, longueur, regex, etc.)
- * et de stocker les erreurs associées.
- *
- * @package GenshinTeam\Validation
+ * Valide des champs de formulaire en appliquant différentes règles
+ * (champ requis, email valide, longueur minimale, format avec regex, etc.)
+ * et stocke les erreurs éventuelles associées.
  */
 class Validator
 {
-
     /**
-     * Stocke les erreurs associées aux champs sous forme d'un tableau associatif.
+     * Tableau associatif des erreurs de validation par champ.
      *
      * @var array<string, string>
      */
     protected array $errors = [];
 
     /**
-     * Vérifie qu'une valeur est renseignée (non vide).
+     * Vérifie qu'une valeur est renseignée et non vide.
      *
      * @param string      $field   Nom du champ.
-     * @param string|null $value   Valeur du champ.
-     * @param string      $message Message d'erreur.
-     *
-     * @return void
+     * @param string|null $value   Valeur saisie.
+     * @param string      $message Message d'erreur en cas d'absence.
      */
     public function validateRequired(string $field, ?string $value, string $message): void
     {
-        if (null === $value || trim($value) === '') {
+        if ($value === null || trim($value) === '') {
             $this->errors[$field] = $message;
         }
     }
 
     /**
-     * Vérifie que la valeur correspond à un email valide.
+     * Vérifie que l'adresse email est valide.
      *
      * @param string      $field   Nom du champ.
-     * @param string|null $email   Email à valider.
-     * @param string      $message Message d'erreur.
-     *
-     * @return void
+     * @param string|null $email   Adresse email à vérifier.
+     * @param string      $message Message d'erreur en cas d'email invalide.
      */
     public function validateEmail(string $field, ?string $email, string $message): void
     {
-        if (null === $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($email === null || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->errors[$field] = $message;
         }
     }
 
     /**
-     * Vérifie que deux valeurs correspondent (utile pour la confirmation d'un mot de passe par exemple).
+     * Vérifie que deux champs ont une valeur identique.
      *
-     * @param string      $field   Nom du champ associé à l'erreur.
+     * @param string      $field   Champ sur lequel associer l'erreur.
      * @param string|null $value1  Première valeur.
-     * @param string|null $value2  Seconde valeur.
-     * @param string      $message Message d'erreur.
-     *
-     * @return void
+     * @param string|null $value2  Valeur à comparer.
+     * @param string      $message Message en cas de non-correspondance.
      */
     public function validateMatch(string $field, ?string $value1, ?string $value2, string $message): void
     {
@@ -71,43 +61,39 @@ class Validator
     }
 
     /**
-     * Vérifie qu'une valeur a au moins une longueur minimale donnée.
+     * Vérifie qu'une chaîne respecte une longueur minimale.
      *
-     * @param string      $field   Nom du champ.
-     * @param string|null $value   Valeur à vérifier.
+     * @param string      $field   Nom du champ concerné.
+     * @param string|null $value   Valeur à analyser.
      * @param int         $min     Longueur minimale requise.
-     * @param string      $message Message d'erreur.
-     *
-     * @return void
+     * @param string      $message Message d'erreur en cas d'insuffisance.
      */
     public function validateMinLength(string $field, ?string $value, int $min, string $message): void
     {
-        if (null === $value || strlen(trim($value)) < $min) {
+        if ($value === null || strlen(trim($value)) < $min) {
             $this->errors[$field] = $message;
         }
     }
 
     /**
-     * Vérifie que la valeur correspond à une expression régulière donnée.
+     * Vérifie qu'une valeur respecte une expression régulière donnée.
      *
-     * @param string      $field   Nom du champ.
-     * @param string|null $value   Valeur à vérifier.
-     * @param string      $pattern Expression régulière à appliquer.
-     * @param string      $message Message d'erreur.
-     *
-     * @return void
+     * @param string      $field   Champ à valider.
+     * @param string|null $value   Valeur à tester.
+     * @param string      $pattern Expression régulière à utiliser.
+     * @param string      $message Message d'erreur si le format ne correspond pas.
      */
     public function validatePattern(string $field, ?string $value, string $pattern, string $message): void
     {
-        if (null === $value || ! preg_match($pattern, $value)) {
+        if ($value === null || ! preg_match($pattern, $value)) {
             $this->errors[$field] = $message;
         }
     }
 
     /**
-     * Indique si des erreurs ont été enregistrées.
+     * Détermine si des erreurs de validation ont été détectées.
      *
-     * @return bool
+     * @return bool True s'il existe au moins une erreur.
      */
     public function hasErrors(): bool
     {
@@ -115,9 +101,9 @@ class Validator
     }
 
     /**
-     * Retourne le tableau des erreurs.
+     * Retourne les erreurs de validation enregistrées.
      *
-     * @return array<string, string>
+     * @return array<string, string> Tableau des erreurs indexé par nom de champ.
      */
     public function getErrors(): array
     {

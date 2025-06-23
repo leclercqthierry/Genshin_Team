@@ -4,35 +4,45 @@ declare (strict_types = 1);
 use GenshinTeam\Renderer\Renderer;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Teste le moteur de rendu Renderer : affichage de vue existante
+ * et gestion des erreurs en cas de fichier manquant.
+ *
+ * @covers \GenshinTeam\Renderer\Renderer
+ */
 class RendererTest extends TestCase
 {
     /**
-     * Répertoire temporaire utilisé pour les tests.
+     * Répertoire temporaire contenant les fichiers de vue pour le test.
      *
      * @var string
      */
     private string $tempDir;
 
     /**
-     * Crée un dossier temporaire et y dépose un fichier de vue pour les tests.
+     * Crée un environnement de test avec un fichier de vue fictif.
+     *
+     * @return void
      */
     protected function setUp(): void
     {
-        // Créer un dossier temporaire unique
+        // Crée un dossier temporaire unique pour cette exécution
         $this->tempDir = sys_get_temp_dir() . '/renderer_test_' . uniqid('', true);
         mkdir($this->tempDir, 0777, true);
 
-        // Créer une vue de test "test.php" qui va utiliser la variable $name
+        // Vue de test contenant une simple interpolation PHP avec $name
         $viewContent = '<?php echo "Hello " . $name; ?>';
         file_put_contents($this->tempDir . '/test.php', $viewContent);
     }
 
     /**
-     * Supprime le dossier temporaire et ses fichiers après chaque test.
+     * Supprime les fichiers temporaires et nettoie le répertoire de test.
+     *
+     * @return void
      */
     protected function tearDown(): void
     {
-        // Supprime tous les fichiers dans le dossier temporaire
+        // Supprime les fichiers créés dans le dossier temporaire
         $files = glob($this->tempDir . '/*');
         if ($files !== false) {
             foreach ($files as $file) {
@@ -41,28 +51,41 @@ class RendererTest extends TestCase
                 }
             }
         }
-        // Supprime le dossier temporaire
+
+        // Supprime le dossier une fois vide
         rmdir($this->tempDir);
     }
 
     /**
-     * Teste que le rendu d'une vue existante retourne le résultat attendu.
+     * Vérifie que render() retourne bien le contenu attendu
+     * lorsqu'une vue valide est fournie.
+     *
+     * @return void
      */
     public function testRenderValidView(): void
     {
         $renderer = new Renderer($this->tempDir);
-        $output   = $renderer->render('test', ['name' => 'World']);
-        $this->assertEquals('Hello World', $output);
+
+        // Appelle render() sur la vue "test.php" en injectant $name = "World"
+        $output = $renderer->render('test', ['name' => 'World']);
+
+        // Vérifie que la sortie correspond exactement à "Hello World"
+        $this->assertSame('Hello World', $output);
     }
 
     /**
-     * Teste que la méthode render() lève une exception si le fichier de vue n'existe pas.
+     * Vérifie que render() lève une exception si la vue est absente.
+     *
+     * @return void
      */
     public function testRenderThrowsExceptionWhenViewNotFound(): void
     {
         $renderer = new Renderer($this->tempDir);
+
+        // On attend une Exception spécifique au rendu manquant
         $this->expectException(Exception::class);
         $this->expectExceptionMessage("Vue introuvable : " . $this->tempDir . "/nonexistent.php");
+
         $renderer->render('nonexistent');
     }
 }

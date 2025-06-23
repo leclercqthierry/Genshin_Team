@@ -1,190 +1,178 @@
 <?php
 
-use GenshinTeam\Database\Database;
+use GenshinTeam\Connexion\Database;
 use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/../../../constants.php';
-
 /**
- * Classe de test pour Database.
+ * Tests unitaires de la classe Database.
  *
- * Vérifie le bon fonctionnement du pattern Singleton et la connexion à la base de données.
+ * Vérifie :
+ * - le respect du pattern Singleton,
+ * - le bon comportement de l’injection manuelle d’une instance PDO,
+ * - le chargement correct des fichiers .env selon l’environnement,
+ * - la gestion des erreurs de configuration via les variables d’environnement.
+ *
+ * @covers \GenshinTeam\Connexion\Database
  */
 class DatabaseTest extends TestCase
 {
-
+    /**
+     * Configure une instance PDO SQLite en mémoire pour injection dans Database.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
-        // Créer une connexion SQLite temporaire
+        /** @var \PDO $pdoMock */
         $pdoMock = new PDO('sqlite::memory:');
         $pdoMock->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        // Injecter la connexion SQLite dans Database
         Database::setInstance($pdoMock);
     }
 
     /**
-     * Teste que l'instance de PDO est bien créée et respecte le pattern Singleton.
+     * Teste que Database retourne toujours la même instance (Singleton).
      *
      * @return void
      */
-    public function testSingletonInstance()
+    public function testSingletonInstance(): void
     {
+        /** @var \PDO $instance1 */
         $instance1 = Database::getInstance(exit:false, testing: true);
+
+        /** @var \PDO $instance2 */
         $instance2 = Database::getInstance(exit:false, testing: true);
 
-        // Vérifie que les deux instances sont identiques (Singleton)
-        $this->assertSame($instance1, $instance2, "Database doit respecter le pattern Singleton.");
-        $this->assertInstanceOf(PDO::class, $instance1, "Database doit retourner une instance de PDO.");
+        $this->assertSame($instance1, $instance2, 'L’instance doit respecter le pattern Singleton.');
+        $this->assertInstanceOf(PDO::class, $instance1);
     }
 
     /**
-     * Teste l'injection d'une instance PDO personnalisée (utile pour les tests).
+     * Vérifie que l’injection manuelle d’un PDO personnalisé est respectée.
      *
      * @return void
      */
-    public function testSetInstance()
+    public function testSetInstance(): void
     {
-        $pdoMock = new PDO('sqlite::memory:'); // Utilisation d'une base SQLite en mémoire
+        /** @var \PDO $pdoMock */
+        $pdoMock = new PDO('sqlite::memory:');
         Database::setInstance($pdoMock);
 
+        /** @var \PDO $instance */
         $instance = Database::getInstance(exit:false, testing: true);
 
-        $this->assertSame($pdoMock, $instance, "L'instance PDO injectée doit être identique.");
+        $this->assertSame($pdoMock, $instance);
     }
 
     /**
-     * Vérifie que la méthode loadEnv() charge correctement le fichier
-     * d'environnement destiné aux tests (.env.test) lorsque APP_ENV est défini sur "test".
-     *
-     * La méthode force l'environnement de test, puis utilise la réflexion pour invoquer
-     * la méthode privée statique loadEnv() de la classe Database. Le test vérifie ensuite
-     * que la variable d'environnement MYSQL_DATABASE a bien été définie à "test_db",
-     * indiquant que le fichier .env.test a bien été chargé.
+     * Vérifie que le fichier `.env.test` est bien chargé si APP_ENV vaut "test".
      *
      * @runInSeparateProcess
      * @return void
      *
-     * @covers \Database::loadEnv
+     * @covers \GenshinTeam\Connexion\Database::loadEnv
      */
     public function testLoadEnvLoadsTestEnvFileWhenAppEnvIsTest(): void
     {
-        // Forcer l'environnement de test
         putenv('APP_ENV=test');
 
-        // Utiliser la réflexion pour appeler la méthode privée statique loadEnv() depuis la classe Database (remplacez si nécessaire)
         $refClass = new ReflectionClass(Database::class);
         $method   = $refClass->getMethod('loadEnv');
         $method->setAccessible(true);
         $method->invoke(null);
 
-        // Vérifier que MYSQL_DATABASE est défini à partir du fichier .env.test
-        $this->assertEquals('test_db', getenv('MYSQL_DATABASE'),
-            "La variable MYSQL_DATABASE devrait être définie à 'test_db' depuis le fichier .env.test.");
+        $this->assertSame('test_db', getenv('MYSQL_DATABASE'));
     }
 
     /**
-     * Vérifie que `getInstance` retourne bien une instance de `PDO`.
+     * Vérifie que getInstance() retourne un PDO valide.
      *
-     * @covers \GenshinTeam\Database\Database::getInstance
+     * @return void
+     *
+     * @covers \GenshinTeam\Connexion\Database::getInstance
      */
     public function testGetInstanceReturnsPdo(): void
     {
-        /** @var PDO */
+        /** @var \PDO $pdo */
         $pdo = Database::getInstance();
-
-        assert($pdo instanceof PDO); // Vérification stricte pour PHPStan niveau 10
-
-        $this->assertInstanceOf(PDO::class, $pdo, "getInstance() devrait retourner une instance de PDO.");
+        $this->assertInstanceOf(PDO::class, $pdo);
     }
 
+    /**
+     * Teste que l’absence de MYSQL_DATABASE déclenche une exception.
+     *
+     * @return void
+     */
     public function testGetInstanceThrowsExceptionOnEmptyDatabase(): void
     {
-        // Réinitialise l'instance
         Database::setInstance(null);
-
-        // configure un environnement de test avec une base de données vide
         file_put_contents('.env.test', 'MYSQL_DATABASE=');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('La variable d\'environnement MYSQL_DATABASE est invalide.');
+        $this->expectExceptionMessage("La variable d'environnement MYSQL_DATABASE est invalide ou manquante.");
 
         Database::getInstance(testing: true);
     }
 
     /**
-     * Teste que getInstance() lève une exception lorsque MYSQL_USER est invalide.
+     * Teste que l’absence de MYSQL_USER déclenche une exception.
      *
      * @return void
      *
-     * @covers \GenshinTeam\Database\Database::getInstance
+     * @covers \GenshinTeam\Connexion\Database::getInstance
      */
     public function testGetInstanceThrowsExceptionOnInvalidUser(): void
     {
-        // Réinitialise l'instance
         Database::setInstance(null);
-
-        // Configure un environnement de test avec un utilisateur vide
-        file_put_contents('.env.test', 'MYSQL_DATABASE=test_db' . PHP_EOL .
-            'MYSQL_USER=');
+        file_put_contents('.env.test', "MYSQL_DATABASE=test_db\nMYSQL_USER=");
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('La variable d\'environnement MYSQL_USER est invalide.');
+        $this->expectExceptionMessage("La variable d'environnement MYSQL_USER est invalide ou manquante.");
 
         Database::getInstance(testing: true);
     }
 
     /**
-     * Teste que getInstance() lève une exception lorsque PMA_HOST est invalide.
+     * Teste que l’absence de PMA_HOST déclenche une exception.
      *
      * @return void
-     *
-     * @covers \GenshinTeam\Database\Database::getInstance
      */
     public function testGetInstanceThrowsExceptionOnInvalidHost(): void
     {
-
-        // Réinitialise l'instance
         Database::setInstance(null);
-
-        // Configure un environnement de test avec un hôte vide
-        file_put_contents('.env.test', 'MYSQL_DATABASE=test_db' . PHP_EOL .
-            'MYSQL_USER=test_user' . PHP_EOL .
-            'MYSQL_PASSWORD=test_pass' . PHP_EOL .
-            'PMA_HOST=');
+        file_put_contents('.env.test', implode(PHP_EOL, [
+            'MYSQL_DATABASE=test_db',
+            'MYSQL_USER=test_user',
+            'MYSQL_PASSWORD=test_pass',
+            'PMA_HOST=',
+        ]));
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('La variable d\'environnement PMA_HOST est invalide.');
+        $this->expectExceptionMessage("La variable d'environnement PMA_HOST est invalide ou manquante.");
 
         Database::getInstance(testing: true);
     }
 
     /**
-     * Teste que getInstance() lève une exception lorsque MYSQL_PASSWORD est invalide.
+     * Teste que l’absence de MYSQL_PASSWORD déclenche une exception.
      *
      * @return void
-     *
-     * @covers \GenshinTeam\Database\Database::getInstance
      */
     public function testGetInstanceThrowsExceptionOnInvalidPassword(): void
     {
-
-        // Réinitialise l'instance
         Database::setInstance(null);
+        file_put_contents('.env.test', implode(PHP_EOL, [
+            'MYSQL_DATABASE=test_db',
+            'MYSQL_USER=test_user',
+            'MYSQL_PASSWORD=',
+            'PMA_HOST=localhost',
+        ]));
 
-        // Configure un environnement de test avec un mot de passe vide
-        file_put_contents('.env.test', 'MYSQL_DATABASE=test_db' . PHP_EOL .
-            'MYSQL_USER=test_user' . PHP_EOL .
-            'MYSQL_PASSWORD=' . PHP_EOL .
-            'PMA_HOST=localhost');
-
-        // Simule un mot de passe invalide
         putenv('MYSQL_PASSWORD=');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('La variable d\'environnement MYSQL_PASSWORD est invalide.');
+        $this->expectExceptionMessage("La variable d'environnement MYSQL_PASSWORD est invalide ou manquante.");
 
         Database::getInstance(testing: true);
     }
-
 }

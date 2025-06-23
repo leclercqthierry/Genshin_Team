@@ -3,79 +3,98 @@ declare (strict_types = 1);
 
 namespace GenshinTeam\Controllers;
 
-use GenshinTeam\Controllers\AbstractController;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Class LogoutController
+ * Contrôleur responsable de la déconnexion de l'utilisateur.
  *
- * Ce contrôleur gère la déconnexion de l'utilisateur de manière sécurisée.
- * Il réalise un nettoyage complet de la session en démarrant la session (si nécessaire),
- * en vidant toutes les variables de session, en supprimant le cookie de session, et en détruisant la session.
- * Enfin, il redirige l'utilisateur vers la page d'accueil.
+ * Ce contrôleur effectue une déconnexion sécurisée en :
+ * - démarrant la session si nécessaire ;
+ * - supprimant toutes les variables de session ;
+ * - détruisant la session serveur ;
+ * - invalidant le cookie de session ;
+ * - redirigeant ensuite vers la page d'accueil.
  *
  * @package GenshinTeam\Controllers
  */
 class LogoutController extends AbstractController
 {
+    /**
+     * Gestionnaire de session utilisé pour manipuler les données de session.
+     *
+     * @var SessionManager
+     */
     protected SessionManager $session;
 
-    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session)
-    {
+    /** @phpstan-ignore-next-line property.onlyWritten */
+    private LoggerInterface $logger;
+
+    /** @phpstan-ignore-next-line property.onlyWritten */
+    private ErrorPresenterInterface $errorPresenter;
+
+    /**
+     * Initialise le contrôleur de déconnexion avec ses dépendances.
+     *
+     * @param Renderer                $renderer        Moteur de rendu des vues.
+     * @param LoggerInterface         $logger          Logger PSR-3 (non utilisé ici, fourni pour conformité d'injection).
+     * @param ErrorPresenterInterface $errorPresenter  Présentateur d'erreurs (non utilisé ici).
+     * @param SessionManager          $session         Gestionnaire de session.
+     */
+    public function __construct(
+        Renderer $renderer,
+        LoggerInterface $logger,
+        ErrorPresenterInterface $errorPresenter,
+        SessionManager $session
+    ) {
         parent::__construct($renderer, $session);
-        $this->session = $session;
+        $this->session        = $session;
+        $this->logger         = $logger;
+        $this->errorPresenter = $errorPresenter;
     }
 
     /**
-     * Traite la déconnexion en nettoyant complètement la session.
+     * Gère la déconnexion complète de l'utilisateur.
      *
-     * Démarre la session si elle n'est pas déjà active, efface les variables de session,
-     * supprime le cookie de session (si les cookies de session sont activés) et détruit la session.
-     * Puis redirige l'utilisateur vers la page d'accueil pour finaliser la déconnexion.
+     * Cette méthode nettoie intégralement la session actuelle en :
+     * - vidant les données ;
+     * - supprimant le cookie de session (si activé) ;
+     * - détruisant la session ;
+     * puis redirige vers l'accueil.
      *
      * @return void
      */
     protected function handleRequest(): void
     {
-
-        // Démarrer la session si nécessaire
         $this->session->start();
-
-        // Vider toutes les variables de session
         $this->session->clear();
 
-        // Supprimer le cookie de session s'il existe, afin d'empêcher la réutilisation de l'ancienne session
-        if (ini_get("session.use_cookies")) {
+        if (ini_get('session.use_cookies')) {
             $params      = session_get_cookie_params();
             $sessionName = session_name();
             if ($sessionName !== false) {
                 setcookie(
-                    $sessionName,   // Nom de la session à supprimer
-                    '',             // Contenu vide pour le cookie
-                    time() - 42000, // Date d'expiration dans le passé pour invalider le cookie
-                    $params["path"],
-                    $params["domain"],
-                    $params["secure"],
-                    $params["httponly"]
+                    $sessionName,
+                    '',
+                    time() - 42000,
+                    $params['path'],
+                    $params['domain'],
+                    $params['secure'],
+                    $params['httponly']
                 );
             }
         }
 
-        // Détruire la session afin de supprimer toutes les traces de l'utilisateur
         $this->session->destroy();
-
-        // Rediriger l'utilisateur vers la page d'accueil après la déconnexion
         $this->redirect('index');
     }
 
     /**
-     * Méthode publique pour démarrer le processus de déconnexion.
+     * Point d'entrée du contrôleur de déconnexion.
      *
-     * Cette méthode sert de point d'entrée pour le contrôleur et appelle la méthode {@see handleRequest()}
-     * qui implémente la logique de déconnexion complète.
+     * Exécute le traitement de déconnexion défini dans {@see handleRequest()}.
      *
      * @return void
      */

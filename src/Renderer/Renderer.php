@@ -1,4 +1,10 @@
 <?php
+declare (strict_types = 1);
+
+namespace GenshinTeam\Renderer;
+
+use Exception;
+
 /**
  * Classe Renderer pour le rendu des vues.
  *
@@ -7,19 +13,13 @@
  *
  * @package GenshinTeam
  */
-
-namespace GenshinTeam\Renderer;
-
-use Exception;
-
-/**
- * Classe Renderer pour le rendu des vues.
- */
 class Renderer
 {
 
     /**
-     * Chemin des vues.
+     * Chemin absolu vers le répertoire contenant les fichiers de vues PHP.
+     *
+     * Terminé automatiquement par un slash (/).
      *
      * @var string
      */
@@ -38,10 +38,14 @@ class Renderer
     /**
      * Rendu d'une vue avec des données dynamiques.
      *
-     * @param string $view Le nom du fichier de vue (sans extension).
-     * @param array<string, mixed> $data Un tableau associatif contenant les variables à passer à la vue.
-     * @return string Le contenu de la vue rendu sous forme de chaîne de caractères.
-     * @throws Exception Si le fichier de vue n'est pas trouvé.
+     * Injecte les variables fournies dans le fichier de vue correspondant et retourne le HTML généré.
+     *
+     * @param string $view Le nom du fichier de vue (sans extension .php).
+     * @param array<string, mixed> $data Données à injecter dans la vue.
+     *
+     * @return string HTML généré par le rendu.
+     *
+     * @throws Exception Si le fichier de vue est introuvable.
      */
     public function render(string $view, array $data = []): string
     {

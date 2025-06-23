@@ -4,41 +4,62 @@ declare (strict_types = 1);
 use GenshinTeam\Controllers\IndexController;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Utils\ErrorPresenterInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
+/**
+ * Teste le comportement de IndexController dans différents contextes utilisateur.
+ *
+ * @covers \GenshinTeam\Controllers\IndexController
+ */
 class IndexControllerTest extends TestCase
 {
+    /** @var string */
     private string $viewPath;
 
+    /**
+     * Prépare un environnement temporaire avec des fichiers de vue HTML.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
-        // Crée un dossier temporaire pour les vues
         $this->viewPath = sys_get_temp_dir() . '/views_' . uniqid();
-        @mkdir($this->viewPath, 0777, true);
-
-        // Crée le dossier templates AVANT d'écrire le fichier dedans
         @mkdir($this->viewPath . '/templates', 0777, true);
 
-        // Crée le template index.php
         file_put_contents($this->viewPath . '/index.php', '<p>Accueil</p>');
-        // Crée le template default.php
-        file_put_contents($this->viewPath . '/templates/default.php', '<html><head><title><?= $title ?></title></head><body><?= $content ?></body></html>');
+        file_put_contents(
+            $this->viewPath . '/templates/default.php',
+            '<html><head><title><?= $title ?></title></head><body><?= $content ?></body></html>'
+        );
     }
 
+    /**
+     * Supprime les fichiers temporaires après exécution des tests.
+     *
+     * @return void
+     */
     protected function tearDown(): void
     {
         @unlink($this->viewPath . '/index.php');
         @unlink($this->viewPath . '/templates/default.php');
-        @rmdir($this->viewPath);
         @rmdir($this->viewPath . '/templates');
+        @rmdir($this->viewPath);
     }
 
+    /**
+     * Vérifie le rendu de la page d’accueil pour un visiteur non connecté.
+     *
+     * @return void
+     */
     public function testDisplayHomeWhenNotConnected(): void
     {
-        $_SESSION  = [];
+        $_SESSION = [];
+
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
         $session->clear();
 
@@ -48,15 +69,21 @@ class IndexControllerTest extends TestCase
         $controller->run();
         $output = ob_get_clean();
 
+        $this->assertIsString($output);
         $this->assertStringContainsString('Bienvenue sur Genshin Team', $output);
         $this->assertStringContainsString('<p>Accueil</p>', $output);
     }
 
+    /**
+     * Vérifie le rendu personnalisé pour un utilisateur connecté.
+     *
+     * @return void
+     */
     public function testDisplayHomeWhenConnected(): void
     {
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
         $session->set('user', 'Jean');
 
@@ -66,26 +93,31 @@ class IndexControllerTest extends TestCase
         $controller->run();
         $output = ob_get_clean();
 
+        $this->assertIsString($output);
         $this->assertStringContainsString('Bienvenue sur Genshin Team, Jean', $output);
         $this->assertStringContainsString('<p>Accueil</p>', $output);
     }
 
+    /**
+     * Vérifie que le contrôleur appelle ErrorPresenter::present()
+     * si la vue d’accueil est absente ou échoue.
+     *
+     * @return void
+     */
     public function testErrorRenderingView(): void
     {
-        // Supprime le template index.php pour provoquer une erreur
         @unlink($this->viewPath . '/index.php');
         $_SESSION = [];
 
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
 
         $controller = new IndexController($renderer, $logger, $presenter, $session);
 
         $presenter->expects($this->once())->method('present');
 
-        // Appel de run() qui va déclencher l'erreur
         $controller->run();
     }
 }

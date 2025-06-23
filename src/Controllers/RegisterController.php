@@ -24,15 +24,28 @@ use Psr\Log\LoggerInterface;
  */
 class RegisterController extends AbstractController
 {
+    /** @var LoggerInterface */
     private LoggerInterface $logger;
+
+    /** @var ErrorPresenterInterface */
     private ErrorPresenterInterface $errorPresenter;
+
+    /** @var SessionManager */
     protected SessionManager $session;
+
+    /** @var User */
     private User $userModel;
+
     /**
      * Constructeur du contrôleur.
      *
      * Démarre la session, instancie le moteur de rendu et génère un jeton CSRF
      * si celui-ci n'est pas encore présent.
+     * @param Renderer                $renderer        Moteur de rendu des vues.
+     * @param LoggerInterface         $logger          Enregistreur PSR-3 des erreurs.
+     * @param ErrorPresenterInterface $errorPresenter  Gestionnaire d'affichage des erreurs.
+     * @param SessionManager          $session         Gestionnaire de session utilisateur.
+     * @param User|null               $userModel       Modèle User (injectable pour tests).
      */
     public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?User $userModel = null)
     {
@@ -229,8 +242,7 @@ class RegisterController extends AbstractController
 
         // Connexion automatique de l'utilisateur nouvellement inscrit et redirection vers la page d'accueil
         $this->session->set('user', $nickname);
+        $this->redirect('index');
 
-        header('Location: index');
-        exit;
     }
 }

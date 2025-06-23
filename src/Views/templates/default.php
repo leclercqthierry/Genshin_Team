@@ -1,4 +1,12 @@
-<?php /** @var array<string, string> $data */?>
+<?php
+    /**
+     * @var array{
+     *   title: string,
+     *   content: string,
+     *   scripts?: string
+     * } $data
+     */
+?>
 <!doctype html>
 <html lang="fr">
     <head>

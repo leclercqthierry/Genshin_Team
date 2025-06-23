@@ -12,8 +12,9 @@
     <testsuites>
         <testsuite name="Application Test Suite">
             <directory>Tests/Integration</directory>
-            <directory>Tests/Unitaries/Controllers</directory>
             <directory>Tests/Unitaries/Connexion</directory>
+            <directory>Tests/Unitaries/Controllers</directory>
+            <directory>Tests/Unitaries/Models</directory>
             <directory>Tests/Unitaries/Renderer</directory>
             <directory>Tests/Unitaries/Router</directory>
             <directory>Tests/Unitaries/Session</directory>

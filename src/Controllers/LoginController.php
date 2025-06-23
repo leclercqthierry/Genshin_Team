@@ -12,28 +12,40 @@ use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Class LoginController
+ * Contrôleur responsable de la gestion du formulaire de connexion.
  *
- * Ce contrôleur gère l'authentification de l'utilisateur.
- * Il initialise la session, configure les cookies de session et gère le jeton CSRF ainsi que le compteur de tentatives de connexion.
- * Selon la méthode de la requête HTTP, il affiche le formulaire de connexion ou traite la tentative de connexion.
- * En cas d'erreur lors du rendu des vues, l'exception est loguée dans un fichier et une vue d'erreur générique est affichée à l'utilisateur.
+ * Ce contrôleur :
+ * - Affiche le formulaire de connexion ;
+ * - Vérifie la validité des identifiants de l'utilisateur ;
+ * - Implémente une protection CSRF ;
+ * - Limite le nombre de tentatives de connexion ;
+ * - Redirige l'utilisateur connecté.
  *
  * @package GenshinTeam\Controllers
  */
 class LoginController extends AbstractController
 {
 
+    /** @var LoggerInterface Enregistreur PSR-3 des erreurs et activités. */
     private LoggerInterface $logger;
+
+    /** @var ErrorPresenterInterface Gère l'affichage utilisateur des erreurs récupérées. */
     private ErrorPresenterInterface $errorPresenter;
+
+    /** @var SessionManager Gestionnaire de session utilisateur. */
     protected SessionManager $session;
+
+    /** @var User Modèle métier utilisé pour interagir avec les données utilisateur. */
     private User $userModel;
+
     /**
-     * Constructeur du contrôleur.
+     * Initialise le contrôleur avec ses dépendances et configure la session.
      *
-     * Initialise la session et configure de manière sécurisée les cookies de session.
-     * Génère un jeton CSRF si celui-ci n'est pas encore défini, afin de sécuriser la session contre les attaques CSRF.
-     * Initialise également le compteur de tentatives de connexion.
+     * @param Renderer                $renderer        Moteur de rendu de vues.
+     * @param LoggerInterface         $logger          Logger PSR-3.
+     * @param ErrorPresenterInterface $errorPresenter  Gestionnaire de rendu d'erreurs.
+     * @param SessionManager          $session         Gestionnaire de session.
+     * @param User|null               $userModel       Modèle utilisateur (injectable pour les tests).
      */
     public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?User $userModel = null)
     {
@@ -165,7 +177,11 @@ class LoginController extends AbstractController
 
         // Vérification des identifiants avec un message d'erreur générique pour ne pas divulguer d'indice
         if ($user === null || ! isset($user['password']) || ! is_string($user['password']) || ! password_verify($password, $user['password'])) {
-            $this->session->set('login_attempts', $this->session->get('login_attempts', 0) + 1);
+            $attempts = $this->session->get('login_attempts', 0);
+            if (! is_int($attempts)) {
+                $attempts = 0;
+            }
+            $this->session->set('login_attempts', $attempts + 1);
 
             $this->addError('global', "Pseudo ou mot de passe incorrect.");
             $this->addData('old', $this->getOld(['nickname' => $nickname]));

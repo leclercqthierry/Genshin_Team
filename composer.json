@@ -4,11 +4,12 @@
     "autoload": {
         "psr-4": {
             "GenshinTeam\\": "src/",
-            "GenshinTeam\\Controllers\\": "src/Controllers/",
             "GenshinTeam\\Connexion\\": "src/Connexion/",
+            "GenshinTeam\\Controllers\\": "src/Controllers/",
             "GenshinTeam\\Models\\": "src/Models/",
-            "Genshinteam\\Renderer\\": "src/Renderer/",
+            "GenshinTeam\\Renderer\\": "src/Renderer/",
             "GenshinTeam\\Router\\": "src/Router/",
+            "GenshinTeam\\Session\\": "src/Session/",
             "GenshinTeam\\Utils\\": "src/Utils/",
             "GenshinTeam\\Validation\\": "src/Validation/"
         }

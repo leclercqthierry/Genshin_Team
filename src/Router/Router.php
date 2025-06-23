@@ -23,11 +23,41 @@ use Psr\Log\LoggerInterface;
  */
 class Router
 {
+    /**
+     * Contrôleur injecté manuellement (souvent en contexte de test).
+     *
+     * @var object|null
+     */
     private ?object $controllerInstance = null;
+
+    /**
+     * Logger PSR-3 pour la journalisation des événements et erreurs.
+     *
+     * @var LoggerInterface
+     */
     private LoggerInterface $logger;
+
+    /**
+     * Présentateur des erreurs à l'utilisateur final.
+     *
+     * @var ErrorPresenterInterface
+     */
     private ErrorPresenterInterface $errorPresenter;
+
+    /**
+     * Gestionnaire de session HTTP.
+     *
+     * @var SessionManager
+     */
     private SessionManager $session;
 
+    /**
+     * Initialise les dépendances nécessaires au routage.
+     *
+     * @param LoggerInterface         $logger          Logger PSR-3.
+     * @param ErrorPresenterInterface $errorPresenter  Gestionnaire d'affichage des erreurs.
+     * @param SessionManager          $session         Gestionnaire de session utilisateur.
+     */
     public function __construct(LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session)
     {
         $this->logger         = $logger;
@@ -85,13 +115,15 @@ class Router
     }
 
     /**
-     * Résout et instancie le contrôleur correspondant à l'URI.
+     * Instancie dynamiquement un contrôleur à partir de l'URI donnée.
      *
-     * @param string $uri L'URI demandée.
+     * Si aucun contrôleur ne correspond, le contrôleur 404 est retourné.
      *
-     * @return AbstractController L'instance du contrôleur correspondant.
+     * @param string $uri URI propre de la requête (ex: 'login', 'index').
      *
-     * @throws Exception Si le contrôleur instancié n'hérite pas de AbstractController.
+     * @return AbstractController Instance du contrôleur correspondant.
+     *
+     * @throws Exception Si le contrôleur ne respecte pas l'héritage requis.
      */
     protected function resolveController(string $uri): AbstractController
     {

@@ -1,6 +1,20 @@
 <?php
-    /** @var array<string, string> $errors */
-    /** @var array<string, string> $old */
+    /**
+     * @var array{
+     *   global?: string,
+     *   nickname?: string,
+     *   email?: string,
+     *   password?: string,
+     *   confirm-password?: string
+     * } $errors
+     */
+
+    /**
+     * @var array{
+     *   nickname?: string,
+     *   email?: string
+     * } $old
+     */
 ?>
 <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold">S'inscrire</h1>
 

@@ -4,10 +4,11 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 /**
- * Classe de contrôle factice utilisée pour des tests.
+ * Contrôleur factice utilisé pour les tests de structure.
  *
+ * Ne doit volontairement PAS hériter d'AbstractController afin de tester
+ * les comportements attendus face à un contrôleur non conforme.
  * @package GenshinTeam\Controllers
  */
-
 class FakeController
 {}

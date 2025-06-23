@@ -1,7 +1,7 @@
 <?php
 declare (strict_types = 1);
 
-namespace GenshinTeam\Database;
+namespace GenshinTeam\Connexion;
 
 use Dotenv\Dotenv;
 use Exception;
@@ -9,36 +9,31 @@ use PDO;
 use RuntimeException;
 
 /**
- * Class Database
+ * Gère la connexion à la base de données via PDO en mode Singleton.
  *
- * Cette classe gère la connexion à la base de données en implémentant le pattern Singleton.
- * Elle utilise Dotenv pour charger les variables d'environnement depuis un fichier .env
- * et établit la connexion via PDO.
+ * Cette classe charge les variables d'environnement via Dotenv
+ * et fournit une instance PDO unique.
  *
- * En cas d'erreur (variable d'environnement manquante ou échec de connexion), l'erreur est
- * loguée et une vue d'erreur générique est affichée grâce au gestionnaire d'erreur injecté.
- *
- * @package GenshinTeam\Database
+ * @package GenshinTeam\Connexion
  */
 class Database
 {
     /**
-     * Instance statique de PDO pour garantir une unique connexion à la base de données.
+     * Instance unique de PDO.
      *
      * @var PDO|null
      */
     private static ?PDO $instance = null;
 
     /**
-     * Constructeur privé pour empêcher l'instanciation externe.
+     * Empêche l'instanciation de la classe (pattern Singleton).
      */
     private function __construct()
-    {}
+    {
+    }
 
     /**
-     * Charge le fichier .env (s'il n'est pas déjà chargé).
-     *
-     * Choisit le fichier en fonction de l'environnement (test ou autre).
+     * Charge les variables d'environnement à partir du fichier .env adapté.
      *
      * @return void
      */
@@ -50,15 +45,14 @@ class Database
     }
 
     /**
-     * Retourne l'instance PDO, en créant la connexion si nécessaire.
+     * Retourne l'instance PDO unique, en l'initialisant si nécessaire.
      *
-     * Implémente le pattern Singleton en créant une unique connexion. En cas d'erreur,
-     * l'exception est gérée via le gestionnaire d'erreur injecté (sauf en mode test).
+     * @param bool $exit    Non utilisé — conservé pour rétrocompatibilité éventuelle.
+     * @param bool $testing Active le mode test pour désactiver les erreurs visibles.
      *
-     * @param bool $exit    Si true, interrompt l'exécution en cas d'erreur.
-     * @param bool $testing Si true, désactive le traitement de l'erreur pour éviter des affichages indésirables.
+     * @return PDO
      *
-     * @return PDO L'instance PDO utilisée pour interagir avec la base de données.
+     * @throws RuntimeException Si la connexion échoue ou les paramètres sont invalides.
      */
     public static function getInstance(bool $exit = true, bool $testing = false): PDO
     {
@@ -68,9 +62,8 @@ class Database
                 $params         = self::getDatabaseParams();
                 self::$instance = self::createPDOInstance($params);
             } catch (Exception | RuntimeException $e) {
-                // On laisse l'exception remonter, elle sera gérée par ErrorHandler plus haut
+                // Laisse l'erreur remonter pour être gérée par un gestionnaire central
                 throw new RuntimeException($e->getMessage(), $e->getCode(), $e);
-
             }
         }
 
@@ -78,35 +71,44 @@ class Database
     }
 
     /**
-     * Récupère et valide les paramètres de connexion à la base de données.
+     * Récupère et valide les paramètres de connexion à partir des variables d'environnement.
+     *
+     * @return array{database: string, username: string, password: string, host: string}
+     *
+     * @throws Exception Si une variable requise est absente ou invalide.
      */
     private static function getDatabaseParams(): array
     {
-        $params = [
-            'database' => $_ENV['MYSQL_DATABASE'] ?? '',
-            'username' => $_ENV['MYSQL_USER'] ?? '',
-            'password' => $_ENV['MYSQL_PASSWORD'] ?? '',
-            'host'     => $_ENV['PMA_HOST'] ?? 'localhost',
+        $requiredVars = [
+            'MYSQL_DATABASE',
+            'MYSQL_USER',
+            'MYSQL_PASSWORD',
+            'PMA_HOST',
         ];
 
-        $envNames = [
-            'database' => 'MYSQL_DATABASE',
-            'username' => 'MYSQL_USER',
-            'password' => 'MYSQL_PASSWORD',
-            'host'     => 'PMA_HOST',
-        ];
+        $params = [];
 
-        foreach ($params as $key => $value) {
-            if (! is_string($value) || empty($value)) {
-                throw new Exception("La variable d'environnement {$envNames[$key]} est invalide.");
+        foreach ($requiredVars as $var) {
+            if (! isset($_ENV[$var]) || ! is_string($_ENV[$var]) || $_ENV[$var] === '') {
+                throw new Exception("La variable d'environnement {$var} est invalide ou manquante.");
             }
+            $params[$var] = $_ENV[$var];
         }
 
-        return $params;
+        return [
+            'database' => $params['MYSQL_DATABASE'],
+            'username' => $params['MYSQL_USER'],
+            'password' => $params['MYSQL_PASSWORD'],
+            'host'     => $params['PMA_HOST'],
+        ];
     }
 
     /**
-     * Crée et retourne une instance PDO.
+     * Crée une nouvelle instance PDO avec les paramètres fournis.
+     *
+     * @param array{database: string, username: string, password: string, host: string} $params
+     *
+     * @return PDO
      */
     private static function createPDOInstance(array $params): PDO
     {
@@ -116,14 +118,17 @@ class Database
             $dsn,
             $params['username'],
             $params['password'],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+            [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]
         );
     }
 
     /**
-     * Permet d'injecter une instance PDO pour les tests unitaires.
+     * Injecte une instance personnalisée de PDO (principalement pour les tests).
      *
-     * @param PDO|null $pdo Instance PDO à utiliser.
+     * @param PDO|null $pdo
      *
      * @return void
      */

@@ -4,23 +4,47 @@ declare (strict_types = 1);
 use GenshinTeam\Controllers\NotFoundController;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Utils\ErrorPresenterInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
+/**
+ * Tests du contrôleur NotFoundController responsable de l'affichage de la page 404.
+ *
+ * @covers \GenshinTeam\Controllers\NotFoundController
+ */
 class NotFoundControllerTest extends TestCase
 {
+    /** @var string */
     private string $viewPath;
 
+    /**
+     * Prépare un environnement temporaire avec un template 404 personnalisé.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
+        // Crée un dossier temporaire pour y stocker les vues
         $this->viewPath = sys_get_temp_dir() . '/views_' . uniqid();
         @mkdir($this->viewPath, 0777, true);
         @mkdir($this->viewPath . '/templates', 0777, true);
-        // Vue 404
+
+        // Crée une vue simulée pour 404.php
         file_put_contents($this->viewPath . '/404.php', '<p>404 custom</p>');
-        // Template par défaut
-        file_put_contents($this->viewPath . '/templates/default.php', '<html><head><title><?= $title ?></title></head><body><?= $content ?></body></html>');
+
+        // Crée un template principal simple pour le layout par défaut
+        file_put_contents(
+            $this->viewPath . '/templates/default.php',
+            '<html><head><title><?= $title ?></title></head><body><?= $content ?></body></html>'
+        );
     }
 
+    /**
+     * Supprime les fichiers temporaires créés pendant les tests.
+     *
+     * @return void
+     */
     protected function tearDown(): void
     {
         @unlink($this->viewPath . '/404.php');
@@ -29,35 +53,47 @@ class NotFoundControllerTest extends TestCase
         @rmdir($this->viewPath);
     }
 
+    /**
+     * Vérifie que la page 404 s'affiche correctement avec le contenu attendu.
+     *
+     * @return void
+     */
     public function testDisplay404(): void
     {
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
-
-        $session = new SessionManager();
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session   = new SessionManager();
 
         $controller = new NotFoundController($renderer, $logger, $presenter, $session);
 
+        // Capture le rendu HTML
         ob_start();
         $controller->run();
         $output = ob_get_clean();
 
+        // Vérifie que l'en-tête et la vue personnalisée sont présents dans la réponse
+        $this->assertIsString($output);
         $this->assertStringContainsString('404 - Page non trouvée', $output);
         $this->assertStringContainsString('<p>404 custom</p>', $output);
     }
 
+    /**
+     * Vérifie que le contrôleur gère une erreur de rendu si le fichier 404 est manquant.
+     *
+     * @return void
+     */
     public function testErrorRendering404(): void
     {
-        // Supprime la vue 404 pour provoquer une erreur
+        // Supprime volontairement le fichier 404.php pour déclencher une erreur
         @unlink($this->viewPath . '/404.php');
 
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
 
-        // On s'attend à ce que le presenter soit appelé
+        // Le presenter doit être invoqué pour gérer l'erreur d'affichage
         $presenter->expects($this->once())->method('present');
 
         $controller = new NotFoundController($renderer, $logger, $presenter, $session);

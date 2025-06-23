@@ -44,6 +44,11 @@ abstract class AbstractController
      */
     protected Renderer $renderer;
 
+    /**
+     * Instance du gestionnaire de session.
+     *
+     * @var SessionManager
+     */
     protected SessionManager $session;
 
     /**
@@ -173,7 +178,7 @@ abstract class AbstractController
     }
 
     /**
-     * Redirige vers une URL donnée.
+     * Redirige vers une URL puis termine l'exécution du script.
      *
      * @param string $url L'URL de destination.
      *

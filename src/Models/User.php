@@ -4,7 +4,7 @@ declare (strict_types = 1);
 namespace GenshinTeam\Models;
 
 use Exception;
-use GenshinTeam\Database\Database;
+use GenshinTeam\Connexion\Database;
 use GenshinTeam\Utils\ErrorHandler;
 use PDO;
 use PDOException;
@@ -29,12 +29,19 @@ class User
      */
     private PDO $pdo;
 
+    /**
+     * Logger PSR-3 utilisé pour enregistrer les erreurs liées aux opérations utilisateurs.
+     *
+     * @var LoggerInterface
+     */
     private LoggerInterface $logger;
 
     /**
      * Constructeur.
      *
      * Établit la connexion à la base de données en récupérant l'instance PDO via la classe Database.
+     *
+     * @param LoggerInterface $logger Logger utilisé pour tracer les erreurs lors des opérations en base.
      *
      * @throws Exception Si la connexion à la base de données échoue.
      */

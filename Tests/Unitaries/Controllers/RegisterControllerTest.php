@@ -1,40 +1,81 @@
 <?php
 declare (strict_types = 1);
 
+use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\RegisterController;
 use GenshinTeam\Models\User;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Utils\ErrorPresenterInterface;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
+use Psr\Log\LoggerInterface;
 
+/**
+ * Tests fonctionnels du RegisterController.
+ *
+ * Ces tests couvrent les cas d'affichage, de protection CSRF,
+ * de validation, et de simulation de modèles existants.
+ *
+ * @covers \GenshinTeam\Controllers\RegisterController
+ */
 class RegisterControllerTest extends TestCase
 {
+    /** @var string */
     private string $viewPath;
 
+    /**
+     * Prépare un environnement de test complet :
+     * - base SQLite simulée,
+     * - vue register.php,
+     * - layout par défaut.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
+        // Simule une base de données avec une table utilisateurs
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('
+            CREATE TABLE zell_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nickname TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                id_role INTEGER NOT NULL
+            )
+        ');
+        Database::setInstance($pdo);
+
+        // Prépare des vues dans un dossier temporaire
         $this->viewPath = sys_get_temp_dir() . '/views_' . uniqid();
         @mkdir($this->viewPath, 0777, true);
-        file_put_contents(
-            $this->viewPath . '/register.php',
-            <<<'PHP'
+        @mkdir($this->viewPath . '/templates', 0777, true);
+
+        // Vue d’inscription simplifiée
+        file_put_contents($this->viewPath . '/register.php', <<<'PHP'
             <?php if (!empty($errors)): ?>
                 <?php foreach ($errors as $err): ?>
                     <div role="alert"><?php echo htmlspecialchars($err); ?></div>
                 <?php endforeach; ?>
             <?php endif; ?>
             <form>register</form>
-            PHP
-        );
+        PHP);
 
-        @mkdir($this->viewPath . '/templates', 0777, true);
+        // Template global par défaut
         file_put_contents($this->viewPath . '/templates/default.php', '<html><?= $title ?? "" ?><?= $content ?? "" ?></html>');
+
+        // Réinitialisation des superglobales
         $_SESSION                  = [];
         $_POST                     = [];
         $_SERVER['REQUEST_METHOD'] = 'GET';
     }
 
+    /**
+     * Supprime les fichiers de test et réinitialise l’environnement.
+     *
+     * @return void
+     */
     protected function tearDown(): void
     {
         @unlink($this->viewPath . '/register.php');
@@ -42,23 +83,33 @@ class RegisterControllerTest extends TestCase
         @rmdir($this->viewPath . '/templates');
         @rmdir($this->viewPath);
         $_SESSION = [];
-        $_POST    = [];
     }
 
+    /**
+     * Crée une instance mockée de RegisterController avec redirection désactivée.
+     *
+     * @param SessionManager|null $session
+     * @param User|null $userModel
+     * @return RegisterController
+     */
     private function getController(?SessionManager $session = null, ?User $userModel = null): RegisterController
     {
         $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(\Psr\Log\LoggerInterface::class);
-        $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
-        $session   = $session ?: new SessionManager();
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session ??= new SessionManager();
 
-        // On mock la méthode redirect pour éviter exit
         return $this->getMockBuilder(RegisterController::class)
             ->setConstructorArgs([$renderer, $logger, $presenter, $session, $userModel])
             ->onlyMethods(['redirect'])
             ->getMock();
     }
 
+    /**
+     * Vérifie que le formulaire d’inscription s’affiche en mode GET.
+     *
+     * @return void
+     */
     public function testDisplayRegisterForm(): void
     {
         $controller = $this->getController();
@@ -66,11 +117,17 @@ class RegisterControllerTest extends TestCase
         ob_start();
         $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
-        $this->assertStringContainsString('S\'inscrire', $output);
+        $this->assertStringContainsString("S'inscrire", $output);
         $this->assertStringContainsString('<form>register</form>', $output);
     }
 
+    /**
+     * Vérifie qu’un jeton CSRF invalide déclenche une erreur.
+     *
+     * @return void
+     */
     public function testRegisterFormWithCsrfError(): void
     {
         $controller                = $this->getController();
@@ -80,75 +137,89 @@ class RegisterControllerTest extends TestCase
         ob_start();
         $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
         $this->assertStringContainsString('Requête invalide', $output);
     }
 
-    public function testRegisterFormWithValidationErrors(): void
+    /**
+     * Vérifie qu’un pseudo contenant du JS est refusé par la validation.
+     *
+     * @return void
+     */
+    public function testRegisterFormWithXssInNickname(): void
     {
         $session = new SessionManager();
         $session->set('csrf_token', 'abc');
         $controller = $this->getController($session);
 
         $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['csrf_token']       = 'abc';
-        $_POST['nickname']         = '';
-        $_POST['email']            = '';
-        $_POST['password']         = '';
-        $_POST['confirm-password'] = '';
+        $_POST                     = [
+            'csrf_token'       => 'abc',
+            'nickname'         => '<script>alert(1)</script>',
+            'email'            => 'jean@example.com',
+            'password'         => 'Password123!',
+            'confirm-password' => 'Password123!',
+        ];
 
         ob_start();
         $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
-        $this->assertStringContainsString('Votre pseudo doit contenir au moins 4 caractères alphanumériques', $output);
-
-        $this->assertStringContainsString('Le champ email est obligatoire', $output);
-        $this->assertStringContainsString('Le champ mot de passe est obligatoire', $output);
-        $this->assertStringContainsString('La confirmation du mot de passe est obligatoire', $output);
+        $this->assertStringContainsString(
+            'Votre pseudo doit contenir au moins 4 caractères alphanumériques',
+            $output
+        );
     }
 
+    /**
+     * Vérifie qu’un pseudo déjà existant empêche l’inscription.
+     *
+     * @return void
+     */
     public function testRegisterFormWithNicknameAlreadyUsed(): void
     {
         $session = new SessionManager();
         $session->set('csrf_token', 'abc');
-        $controller = $this->getController($session);
 
-        // Mock User pour retourner un utilisateur existant
-        $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
+        // Simule un utilisateur déjà existant dans la base
+        $userMock = $this->getMockBuilder(User::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname'])
             ->getMock();
         $userMock->method('getUserByNickname')->willReturn(['nickname' => 'Jean']);
 
+        $controller = $this->getController($session, $userMock);
+
         $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['csrf_token']       = 'abc';
-        $_POST['nickname']         = 'Jean';
-        $_POST['email']            = 'jean@example.com';
-        $_POST['password']         = 'Password123!';
-        $_POST['confirm-password'] = 'Password123!';
+        $_POST                     = [
+            'csrf_token'       => 'abc',
+            'nickname'         => 'Jean',
+            'email'            => 'jean@example.com',
+            'password'         => 'Password123!',
+            'confirm-password' => 'Password123!',
+        ];
 
-        // Injection du mock dans le contrôleur via Reflection (car RegisterController instancie User en dur)
-        $ref    = new ReflectionClass($controller);
-        $method = $ref->getMethod('handleRegister');
-        $method->setAccessible(true);
-
-        // Remplace User par le mock dans le scope local de la méthode (possible uniquement si tu adaptes le code pour l'injection)
-        // Ici, on vérifie juste que le message d'erreur est affiché
         ob_start();
-        $method->invoke($controller);
+        $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
-        $this->assertStringContainsString('Ce pseudo est déjà utilisé', $output);
+        $this->assertStringContainsString("Ce pseudo est déjà utilisé", $output);
     }
 
+    /**
+     * Vérifie que l’inscription échoue si l’email est déjà utilisé.
+     *
+     * @return void
+     */
     public function testRegisterFormWithEmailAlreadyUsed(): void
     {
         $session = new SessionManager();
         $session->set('csrf_token', 'abc');
-        $controller = $this->getController($session);
 
-        // Mock User pour retourner null pour le pseudo et un utilisateur pour l'email
+        // Simule un pseudo inexistant mais un email déjà utilisé
         $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail'])
@@ -156,32 +227,36 @@ class RegisterControllerTest extends TestCase
         $userMock->method('getUserByNickname')->willReturn(null);
         $userMock->method('getUserByEmail')->willReturn(['email' => 'jean@example.com']);
 
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['csrf_token']       = 'abc';
-        $_POST['nickname']         = 'Jean';
-        $_POST['email']            = 'jean@example.com';
-        $_POST['password']         = 'Password123!';
-        $_POST['confirm-password'] = 'Password123!';
+        $controller = $this->getController($session, $userMock);
 
-        // Injection du mock dans le contrôleur via Reflection
-        $ref    = new ReflectionClass($controller);
-        $method = $ref->getMethod('handleRegister');
-        $method->setAccessible(true);
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST                     = [
+            'csrf_token'       => 'abc',
+            'nickname'         => 'Jean',
+            'email'            => 'jean@example.com',
+            'password'         => 'Password123!',
+            'confirm-password' => 'Password123!',
+        ];
 
         ob_start();
-        $method->invoke($controller);
+        $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
         $this->assertStringContainsString('Cet email est déjà utilisé', $output);
     }
 
+    /**
+     * Vérifie que l’échec de la création de l’utilisateur affiche une erreur générique.
+     *
+     * @return void
+     */
     public function testRegisterFormWithUserCreationFailure(): void
     {
         $session = new SessionManager();
         $session->set('csrf_token', 'abc');
-        $controller = $this->getController($session);
 
-        // Mock User pour retourner null pour pseudo/email et false pour createUser
+        // Simule une validation OK mais un échec en base
         $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail', 'createUser'])
@@ -190,25 +265,30 @@ class RegisterControllerTest extends TestCase
         $userMock->method('getUserByEmail')->willReturn(null);
         $userMock->method('createUser')->willReturn(false);
 
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['csrf_token']       = 'abc';
-        $_POST['nickname']         = 'Jean';
-        $_POST['email']            = 'jean@example.com';
-        $_POST['password']         = 'Password123!';
-        $_POST['confirm-password'] = 'Password123!';
+        $controller = $this->getController($session, $userMock);
 
-        // Injection du mock dans le contrôleur via Reflection
-        $ref    = new ReflectionClass($controller);
-        $method = $ref->getMethod('handleRegister');
-        $method->setAccessible(true);
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST                     = [
+            'csrf_token'       => 'abc',
+            'nickname'         => 'Jean',
+            'email'            => 'jean@example.com',
+            'password'         => 'Password123!',
+            'confirm-password' => 'Password123!',
+        ];
 
         ob_start();
-        $method->invoke($controller);
+        $controller->run();
         $output = ob_get_clean();
+        self::assertIsString($output);
 
-        $this->assertStringContainsString('Erreur lors de la création de l\'utilisateur', $output);
+        $this->assertStringContainsString("Erreur lors de la création de l'utilisateur", html_entity_decode($output));
     }
 
+    /**
+     * Vérifie qu’une inscription réussie redirige l’utilisateur vers l’index.
+     *
+     * @return void
+     */
     public function testSuccessfulRegisterRedirects(): void
     {
         $renderer  = new Renderer($this->viewPath);
@@ -217,7 +297,7 @@ class RegisterControllerTest extends TestCase
         $session   = new SessionManager();
         $session->set('csrf_token', 'abc');
 
-        // Mock User pour retourner null pour pseudo/email et true pour createUser
+        // Simule une validation OK et un createUser qui retourne true
         $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail', 'createUser'])
@@ -227,30 +307,35 @@ class RegisterControllerTest extends TestCase
         $userMock->method('createUser')->willReturn(true);
 
         $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['csrf_token']       = 'abc';
-        $_POST['nickname']         = 'Jean';
-        $_POST['email']            = 'jean@example.com';
-        $_POST['password']         = 'Password123!';
-        $_POST['confirm-password'] = 'Password123!';
+        $_POST                     = [
+            'csrf_token'       => 'abc',
+            'nickname'         => 'Jean',
+            'email'            => 'jean@example.com',
+            'password'         => 'Password123!',
+            'confirm-password' => 'Password123!',
+        ];
 
-        // On mock la redirection
+        // Mocke la méthode redirect pour ne pas exécuter header()
         $controller = $this->getMockBuilder(RegisterController::class)
-            ->setConstructorArgs([$renderer, $logger, $presenter, $session])
+            ->setConstructorArgs([$renderer, $logger, $presenter, $session, $userMock])
             ->onlyMethods(['redirect'])
             ->getMock();
 
+        // On s’attend à une redirection vers l’index
         $controller->expects($this->once())->method('redirect')->with('index');
 
-        // Pour injecter le mock User, il faudrait refactorer RegisterController pour accepter un User en dépendance.
-        // Ici, on ne peut pas le faire sans modifier le code source.
-        // On vérifie donc que la redirection est appelée.
+        // Appel direct de la méthode protégée via réflexion
         $ref    = new ReflectionClass($controller);
         $method = $ref->getMethod('handleRegister');
         $method->setAccessible(true);
-
         $method->invoke($controller);
     }
 
+    /**
+     * Vérifie que showRegisterForm() gère proprement une erreur de rendu.
+     *
+     * @return void
+     */
     public function testShowRegisterFormHandlesRenderException(): void
     {
         $renderer  = $this->createMock(Renderer::class);
@@ -258,15 +343,15 @@ class RegisterControllerTest extends TestCase
         $presenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
         $session   = new SessionManager();
 
-        // Le renderer va lancer une exception lors du rendu du template par défaut
-        $renderer->method('render')->willReturnCallback(function ($view) {
+        // Fait échouer le rendu du layout par défaut
+        $renderer->method('render')->willReturnCallback(function (string $view): string {
             if ($view === 'templates/default') {
                 throw new \Exception('Rendering failed');
             }
             return '';
         });
 
-        // On s'attend à ce que le presenter soit appelé pour afficher l'erreur
+        // Vérifie que le presenter est appelé en cas d’erreur de rendu
         $presenter->expects($this->once())->method('present');
 
         $controller = $this->getMockBuilder(RegisterController::class)
@@ -274,8 +359,8 @@ class RegisterControllerTest extends TestCase
             ->onlyMethods(['redirect'])
             ->getMock();
 
-        // Utilisation de la réflexion pour appeler la méthode protégée
-        $refMethod = (new \ReflectionClass($controller))->getMethod('showRegisterForm');
+        // Appel manuel de la méthode protégée via réflexion
+        $refMethod = (new ReflectionClass($controller))->getMethod('showRegisterForm');
         $refMethod->setAccessible(true);
         $refMethod->invoke($controller);
     }

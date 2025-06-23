@@ -1,6 +1,16 @@
 <?php
-    /** @var array<string, string> $errors */
-    /** @var array<string, string> $old */
+    /**
+     * @var array{
+     *   nickname?: string,
+     *   password?: string,
+     *   global?: string
+     * } $errors
+     */
+    /**
+     * @var array{
+     *   nickname?: string
+     * } $old
+     */
 ?>
 
 <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold">Connexion</h1>

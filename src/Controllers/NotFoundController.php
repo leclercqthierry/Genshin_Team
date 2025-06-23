@@ -3,7 +3,6 @@ declare (strict_types = 1);
 
 namespace GenshinTeam\Controllers;
 
-use GenshinTeam\Controllers\AbstractController;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorHandler;
@@ -11,36 +10,61 @@ use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Contrôleur pour la gestion des erreurs 404.
+ * Contrôleur chargé d'afficher la page 404 - Page non trouvée.
  *
- * Cette classe est utilisée pour afficher une page "404 - Page non trouvée"
- * en cas de requête vers une URL inexistante.
+ * Ce contrôleur est invoqué lorsqu'une requête cible une route inexistante.
+ * Il prépare les données nécessaires à l'affichage de la page 404, rend la vue correspondante,
+ * et assure un fallback en cas d'exception lors du rendu, en affichant une erreur formatée.
+ *
+ * @package GenshinTeam\Controllers
  */
 class NotFoundController extends AbstractController
 {
-    private LoggerInterface $logger;
-    private ErrorPresenterInterface $errorPresenter;
-    protected SessionManager $session;
     /**
-     * Constructeur de la classe.
+     * Logger PSR-3 pour tracer les éventuelles erreurs.
      *
-     * @param Renderer $renderer Instance du moteur de rendu permettant d'afficher la page 404.
-     * @param LoggerInterface $logger Instance du logger pour enregistrer les erreurs.
-     * @param ErrorPresenterInterface $errorPresenter Instance du présentateur d'erreurs.
+     * @var LoggerInterface
      */
-    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session)
-    {
+    private LoggerInterface $logger;
+
+    /**
+     * Composant responsable de l'affichage des erreurs à l'utilisateur.
+     *
+     * @var ErrorPresenterInterface
+     */
+    private ErrorPresenterInterface $errorPresenter;
+
+    /**
+     * Gestionnaire de session, redéclaré ici pour manipulation locale.
+     *
+     * @var SessionManager
+     */
+    protected SessionManager $session;
+
+    /**
+     * Constructeur du contrôleur 404.
+     *
+     * @param Renderer                $renderer        Moteur de rendu de vues.
+     * @param LoggerInterface         $logger          Logger PSR-3.
+     * @param ErrorPresenterInterface $errorPresenter  Présentateur des erreurs.
+     * @param SessionManager          $session         Gestionnaire de session.
+     */
+    public function __construct(
+        Renderer $renderer,
+        LoggerInterface $logger,
+        ErrorPresenterInterface $errorPresenter,
+        SessionManager $session
+    ) {
         parent::__construct($renderer, $session);
         $this->logger         = $logger;
         $this->errorPresenter = $errorPresenter;
         $this->session        = $session;
-
     }
 
     /**
-     * Lance la gestion de la requête d'erreur 404.
+     * Point d'entrée du contrôleur 404.
      *
-     * Cette méthode sert de point d'entrée principal et appelle `handleRequest()`.
+     * Déclenche le rendu de la page "Page non trouvée".
      *
      * @return void
      */
@@ -50,32 +74,26 @@ class NotFoundController extends AbstractController
     }
 
     /**
-     * Gère l'affichage de la page 404.
+     * Génère et affiche la page 404.
      *
-     * Ajoute les données nécessaires à l'affichage de la page d'erreur et les rend via `Renderer`.
+     * Récupère les données nécessaires, démarre la session si besoin,
+     * et tente de rendre la vue. Si une erreur survient, elle est traitée
+     * via `ErrorHandler` puis affichée grâce à `ErrorPresenterInterface`.
      *
      * @return void
      */
     protected function handleRequest(): void
     {
         try {
-            // Démarrer la session si elle n'existe pas
             $this->session->start();
 
-            // Ajout du titre de la page
             $this->addData('title', '404 - Page non trouvée');
-
-            // Contenu rendu via le moteur de rendu
             $this->addData('content', $this->renderer->render('404'));
-
-            // Rendu final de la page d'erreur
             $this->renderDefault();
         } catch (\Throwable $e) {
-            // Utilisation de l'instance du gestionnaire d'erreurs
             $handler = new ErrorHandler($this->logger);
             $payload = $handler->handle($e);
             $this->errorPresenter->present($payload);
-
         }
     }
 }
