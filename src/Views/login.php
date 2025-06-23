@@ -13,7 +13,7 @@
      */
 ?>
 
-<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold">Connexion</h1>
+<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">Connexion</h1>
 
 <?php if (isset($errors['global'])): ?>
     <div role="alert" class="mb-4 rounded border border-red-500 bg-red-100 p-4 text-red-700">

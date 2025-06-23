@@ -16,7 +16,7 @@
      * } $old
      */
 ?>
-<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold">S'inscrire</h1>
+<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">S'inscrire</h1>
 
 <?php if (isset($errors['global'])): ?>
     <div role="alert" class="mb-4 ms-4 me-4 rounded border border-red-500 bg-red-100 p-4 text-red-700">

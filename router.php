@@ -48,6 +48,7 @@ $router->addRoute('', 'IndexController');
 $router->addRoute('login', 'LoginController');
 $router->addRoute('register', 'RegisterController');
 $router->addRoute('logout', 'LogoutController');
+$router->addRoute('admin', 'AdminController');
 
 // Gestion globale des erreurs
 try {

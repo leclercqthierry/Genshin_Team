@@ -1,4 +1,4 @@
-<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold">News</h1>
+<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">News</h1>
 <div
     class="ms-3.5 me-3.5 mt-0 mb-5 flex flex-col justify-evenly gap-3.5 rounded-[20px] bg-(--bg-secondary) p-3.5"
 >
