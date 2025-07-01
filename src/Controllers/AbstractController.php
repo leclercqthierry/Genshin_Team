@@ -166,6 +166,17 @@ abstract class AbstractController
     }
 
     /**
+     * Stocke les anciennes données du formulaire pour les réafficher en cas d'erreur.
+     *
+     * @param array<string, mixed> $old
+     * @return void
+     */
+    protected function setOld(array $old): void
+    {
+        $this->data['old'] = $old;
+    }
+
+    /**
      * Valide le token CSRF.
      *
      * @return bool True si le token est valide, false sinon.
@@ -188,5 +199,17 @@ abstract class AbstractController
     {
         header('Location: ' . $url);
         exit;
+    }
+
+    /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {
+        // Optionnel : stocker la route si besoin
+        // $this->currentRoute = $route;
     }
 }

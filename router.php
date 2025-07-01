@@ -4,6 +4,8 @@ declare (strict_types = 1);
 require_once __DIR__ . '/constants.php';
 require_once PROJECT_ROOT . '/vendor/autoload.php';
 
+use GenshinTeam\Connexion\Database;
+use GenshinTeam\Models\FarmDays;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Router\Router;
 use GenshinTeam\Session\SessionManager;
@@ -40,6 +42,8 @@ session_set_cookie_params([
 // Instancie le SessionManager
 $session = new SessionManager();
 
+$farmDayModel = new FarmDays(Database::getInstance(), $logger);
+
 // Création et configuration du routeur
 $router = new Router($logger, $errorPresenter, $session);
 
@@ -49,6 +53,10 @@ $router->addRoute('login', 'LoginController');
 $router->addRoute('register', 'RegisterController');
 $router->addRoute('logout', 'LogoutController');
 $router->addRoute('admin', 'AdminController');
+$router->addRoute('add-farm-days', 'FarmDaysController');
+$router->addRoute('edit-farm-days', 'FarmDaysController');
+$router->addRoute('delete-farm-days', 'FarmDaysController');
+$router->addRoute('farm-days-list', 'FarmDaysController');
 
 // Gestion globale des erreurs
 try {

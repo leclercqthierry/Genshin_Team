@@ -165,6 +165,10 @@ class Router
             // Détermination du contrôleur à instancier
             $controller = $this->controllerInstance ?? $this->resolveController($uri);
 
+            if (method_exists($controller, 'setCurrentRoute')) {
+                $controller->setCurrentRoute($uri);
+            }
+
             // Exécution du contrôleur
             /**
              * @var AbstractController $controller

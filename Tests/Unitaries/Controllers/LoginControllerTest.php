@@ -315,4 +315,5 @@ class LoginControllerTest extends TestCase
         // Appel réel de la méthode protégée dans un contexte contrôlé
         $refMethod->invoke($controller);
     }
+
 }

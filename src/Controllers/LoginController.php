@@ -135,72 +135,150 @@ class LoginController extends AbstractController
     /**
      * Traite la tentative de connexion de l'utilisateur.
      *
-     * Vérifie d'abord le jeton CSRF pour sécuriser la requête.
-     * Récupère et nettoie la saisie utilisateur pour le pseudo et le mot de passe.
-     * Vérifie que les champs ne sont pas vides et limite le nombre de tentatives de connexion.
-     * Si les identifiants sont incorrects, un message d'erreur générique est affiché et le compteur de tentatives est incrémenté.
-     * En cas d'identifiants corrects, la session est régénérée pour éviter la fixation de session et
-     * l'utilisateur est redirigé vers la page d'accueil.
+     * Cette méthode suit plusieurs étapes :
+     * - Vérifie le jeton CSRF
+     * - Récupère les champs du formulaire
+     * - Valide le nombre de tentatives échouées
+     * - Vérifie que les champs ne sont pas vides
+     * - Tente l’authentification
+     * - Connecte l'utilisateur ou affiche une erreur
      *
      * @return void
      */
     protected function handleLogin(): void
     {
-
-        // Vérification du jeton CSRF afin d'éviter les attaques de type Cross-Site Request Forgery
+        // Sécurité : validation du token CSRF
         if (! $this->isCsrfTokenValid()) {
-            $this->addError('global', "Requête invalide ! Veuillez réessayer.");
-            $this->showLoginForm();
+            $this->handleInvalidCsrf();
             return;
         }
 
-        // Suppression des espaces indésirables et récupération des données saisies
-        $nickname = isset($_POST['nickname']) && is_string($_POST['nickname']) ? trim($_POST['nickname']) : '';
-        $password = isset($_POST['password']) && is_string($_POST['password']) ? trim($_POST['password']) : '';
+        // Champs saisis par l'utilisateur
+        [$nickname, $password] = $this->getLoginFields();
 
-        // Vérification et limitation du nombre de tentatives de connexion
-        if ($this->session->get('login_attempts') >= 3) {
-            $this->addError('global', "Trop de tentatives échouées, veuillez réessayer plus tard.");
-            $this->addData('old', $this->getOld(['nickname' => $nickname]));
-            $this->showLoginForm();
+        // Trop de tentatives ? On bloque
+        if ($this->hasTooManyAttempts()) {
+            $this->handleTooManyAttempts($nickname);
             return;
         }
 
-        // Validation de la saisie utilisateur : tous les champs doivent être renseignés
-        if (empty($nickname) || empty($password)) {
-            $this->addError('global', "Veuillez remplir tous les champs.");
-            $this->addData('old', $this->getOld(['nickname' => $nickname]));
-            $this->showLoginForm();
+        // Champs requis vides
+        if ($this->hasEmptyFields($nickname, $password)) {
+            $this->handleEmptyFields($nickname);
             return;
         }
 
-        // Passe le logger à User
+        // Recherche de l’utilisateur
         $user = $this->userModel->getUserByNickname($nickname);
 
-        // Vérification des identifiants avec un message d'erreur générique pour ne pas divulguer d'indice
-        if ($user === null || ! isset($user['password']) || ! is_string($user['password']) || ! password_verify($password, $user['password'])) {
-            $attempts = $this->session->get('login_attempts', 0);
-            if (! is_int($attempts)) {
-                $attempts = 0;
-            }
-            $this->session->set('login_attempts', $attempts + 1);
-
-            $this->addError('global', "Pseudo ou mot de passe incorrect.");
-            $this->addData('old', $this->getOld(['nickname' => $nickname]));
-            $this->showLoginForm();
+        // Vérifie les identifiants
+        if (! $this->isValidUser($user, $password)) {
+            $this->handleInvalidCredentials($nickname);
             return;
         }
 
-        // Connexion réussie : régénération de l'ID de session pour prévenir la fixation de session
+        // Authentification réussie
+        /** @var array{password: string, id_role: int} $user */
+        $this->loginUser($user, $nickname);
+    }
+
+    /**
+     * Récupère et nettoie les champs du formulaire de connexion.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function getLoginFields(): array
+    {
+        $nickname = isset($_POST['nickname']) && is_string($_POST['nickname']) ? trim($_POST['nickname']) : '';
+        $password = isset($_POST['password']) && is_string($_POST['password']) ? trim($_POST['password']) : '';
+        return [$nickname, $password];
+    }
+
+    /**
+     * Vérifie si le nombre de tentatives de connexion est dépassé.
+     */
+    private function hasTooManyAttempts(): bool
+    {
+        return $this->session->get('login_attempts') >= 3;
+    }
+
+    /**
+     * Vérifie si les champs sont vides.
+     */
+    private function hasEmptyFields(string $nickname, string $password): bool
+    {
+        return empty($nickname) || empty($password);
+    }
+
+    /**
+     * Vérifie la validité de l'utilisateur et du mot de passe.
+     *
+     * @param array<string, mixed>|null $user
+     */
+    private function isValidUser(?array $user, string $password): bool
+    {
+        return $user !== null
+        && isset($user['password'])
+        && is_string($user['password'])
+        && password_verify($password, $user['password']);
+    }
+
+    /**
+     * Gère le cas d'un jeton CSRF invalide.
+     */
+    private function handleInvalidCsrf(): void
+    {
+        $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+        $this->showLoginForm();
+    }
+
+    /**
+     * Gère le cas où trop de tentatives ont été effectuées.
+     */
+    private function handleTooManyAttempts(string $nickname): void
+    {
+        $this->addError('global', "Trop de tentatives échouées, veuillez réessayer plus tard.");
+        $this->addData('old', $this->getOld(['nickname' => $nickname]));
+        $this->showLoginForm();
+    }
+
+    /**
+     * Gère le cas où des champs sont vides.
+     */
+    private function handleEmptyFields(string $nickname): void
+    {
+        $this->addError('global', "Veuillez remplir tous les champs.");
+        $this->addData('old', $this->getOld(['nickname' => $nickname]));
+        $this->showLoginForm();
+    }
+
+    /**
+     * Gère le cas où les identifiants sont invalides.
+     */
+    private function handleInvalidCredentials(string $nickname): void
+    {
+        $attempts = $this->session->get('login_attempts', 0);
+
+        /** @var int $attempts */
+        $this->session->set('login_attempts', $attempts + 1);
+
+        $this->addError('global', "Pseudo ou mot de passe incorrect.");
+        $this->addData('old', $this->getOld(['nickname' => $nickname]));
+        $this->showLoginForm();
+    }
+
+    /**
+     * Connecte l'utilisateur et effectue la redirection.
+     *
+     * @param array{password: string, id_role: int, ...} $user
+     */
+    private function loginUser(array $user, string $nickname): void
+    {
         session_regenerate_id(true);
         $this->session->set('user', $nickname);
         $this->session->set('id_role', $user['id_role']);
-        $this->session->set('login_attempts', 0); // Réinitialisation du compteur de tentatives
-
-        // Régénération du jeton CSRF pour sécuriser les futures requêtes
+        $this->session->set('login_attempts', 0);
         $this->session->set('csrf_token', bin2hex(random_bytes(32)));
-
-        // Redirection vers l'accueil après une connexion réussie
         $this->redirect('index');
     }
 }

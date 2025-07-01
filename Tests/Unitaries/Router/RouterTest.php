@@ -261,4 +261,41 @@ class RouterTest extends TestCase
         $this->assertArrayHasKey('test-route', $routes);
         $this->assertSame('TestController', $routes['test-route']);
     }
+    /**
+     * Vérifie que `dispatch()` appelle `setCurrentRoute()` si la méthode existe dans le contrôleur.
+     *
+     * @covers \GenshinTeam\Router\Router::dispatch
+     * @return void
+     */
+    public function testDispatchCallsSetCurrentRouteIfExists(): void
+    {
+        // Crée un mock de AbstractController avec setCurrentRoute
+        $controllerMock = $this->getMockBuilder(AbstractController::class)
+            ->setConstructorArgs([
+                $this->createMock(Renderer::class),
+                $this->createMock(LoggerInterface::class),
+                $this->createMock(ErrorPresenterInterface::class),
+                $this->createMock(SessionManager::class),
+            ])
+            ->onlyMethods(['setCurrentRoute', 'run', 'handleRequest'])
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $controllerMock->expects($this->once())
+            ->method('setCurrentRoute')
+            ->with('test-uri');
+
+        $controllerMock->expects($this->once())
+            ->method('run');
+
+        $mockLogger    = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $mockPresenter = $this->createMock(\GenshinTeam\Utils\ErrorPresenterInterface::class);
+        $router        = new \GenshinTeam\Router\Router($mockLogger, $mockPresenter, new \GenshinTeam\Session\SessionManager());
+
+        $router->setControllerInstance($controllerMock);
+
+        $_SERVER['REQUEST_URI'] = '/test-uri';
+
+        $router->dispatch();
+    }
 }

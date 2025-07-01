@@ -130,39 +130,86 @@ class RegisterController extends AbstractController
         }
     }
 
-    /**
-     * Traite la tentative d'inscription de l'utilisateur.
-     *
-     * Valide la soumission du formulaire d'inscription en vérifiant :
-     * - Le jeton CSRF pour sécuriser la requête
-     * - Le remplissage et le format des champs (pseudo, email, mot de passe et confirmation)
-     * - La correspondance entre le mot de passe et sa confirmation
-     *
-     * En cas d'erreur, le formulaire est réaffiché avec les erreurs et les anciennes valeurs.
-     * Si la validation est réussie, le mot de passe est hashé, l'utilisateur est créé en base de données
-     * et l'utilisateur est automatiquement connecté avant d'être redirigé vers la page d'accueil.
-     *
-     * @return void
-     */
+/**
+ * Traite la tentative d'inscription de l'utilisateur.
+ *
+ * Vérifie successivement :
+ * - la validité du token CSRF (sécurité contre les attaques)
+ * - la conformité des champs (format, présence, sécurité)
+ * - la disponibilité du pseudo et de l'email
+ * - la création de l'utilisateur avec mot de passe sécurisé
+ *
+ * En cas de succès, l'utilisateur est connecté automatiquement puis redirigé.
+ * En cas d'erreur, les messages sont affichés avec les valeurs précédemment saisies.
+ *
+ * @return void
+ */
     protected function handleRegister(): void
     {
-        // Vérification du jeton CSRF pour sécuriser la soumission du formulaire
+        // Étape 1 : Protection CSRF
         if (! $this->isCsrfTokenValid()) {
-            $this->addError('global', "Requête invalide ! Veuillez réessayer.");
-            $this->showRegisterForm();
+            $this->handleInvalidCsrf();
             return;
         }
 
-        // Récupération et nettoyage des données du formulaire d'inscription
+        // Étape 2 : Extraction et nettoyage des champs postés
+        [$nickname, $email, $password, $confirmPassword] = $this->getRegisterFields();
+
+        // Étape 3 : Validation des champs
+        $validator = $this->validateRegisterFields($nickname, $email, $password, $confirmPassword);
+
+        // Étape 4 : Gestion des erreurs de validation
+        if ($validator->hasErrors()) {
+            $this->handleValidationErrors($validator, $nickname, $email);
+            return;
+        }
+
+        // Étape 5 : Hash du mot de passe sécurisé (algorithme actuel par défaut)
+        $storedHash = password_hash($password, PASSWORD_DEFAULT);
+
+        // Étape 6 : Vérifie unicité du pseudo
+        if ($this->userModel->getUserByNickname($nickname)) {
+            $this->handleNicknameTaken($nickname, $email);
+            return;
+        }
+
+        // Étape 7 : Vérifie unicité de l'email
+        if ($this->userModel->getUserByEmail($email)) {
+            $this->handleEmailTaken($nickname, $email);
+            return;
+        }
+
+        // Étape 8 : Création en base
+        if (! $this->userModel->createUser($nickname, $email, $storedHash)) {
+            $this->handleUserCreationFailure($nickname, $email);
+            return;
+        }
+
+        // Étape 9 : Connexion automatique + redirection
+        $this->loginAndRedirect($nickname);
+    }
+
+    /**
+     * Récupère et nettoie les champs du formulaire d'inscription.
+     *
+     * @return array{0: string, 1: string, 2: string, 3: string}
+     */
+    private function getRegisterFields(): array
+    {
         $nickname        = trim(is_string($_POST['nickname']) ? $_POST['nickname'] : '');
         $email           = trim(is_string($_POST['email']) ? $_POST['email'] : '');
         $password        = trim(is_string($_POST['password']) ? $_POST['password'] : '');
         $confirmPassword = trim(is_string($_POST['confirm-password']) ? $_POST['confirm-password'] : '');
+        return [$nickname, $email, $password, $confirmPassword];
+    }
 
-        // Instanciation du validateur pour contrôler le contenu des champs soumis
+    /**
+     * Valide les champs du formulaire d'inscription.
+     */
+    private function validateRegisterFields(string $nickname, string $email, string $password, string $confirmPassword): Validator
+    {
         $validator = new Validator();
 
-        // Validation du champ "nickname"
         $validator->validateRequired('nickname', $nickname, "Le champ pseudo est obligatoire.");
         $validator->validatePattern(
             'nickname',
@@ -170,12 +217,8 @@ class RegisterController extends AbstractController
             '/^\w{4,}$/',
             'Votre pseudo doit contenir au moins 4 caractères alphanumériques sans espaces ni caractères spéciaux (sauf underscore)!'
         );
-
-        // Validation du champ "email"
         $validator->validateRequired('email', $email, "Le champ email est obligatoire.");
         $validator->validateEmail('email', $email, "L'email n'est pas valide.");
-
-        // Validation du champ "password"
         $validator->validateRequired('password', $password, "Le champ mot de passe est obligatoire.");
         $validator->validatePattern(
             'password',
@@ -183,66 +226,80 @@ class RegisterController extends AbstractController
             '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/',
             'Le mot de passe doit contenir au moins un nombre, une lettre majuscule, une minuscule, un caractère spécial et comporter au moins 12 caractères'
         );
-
-        // Validation du champ "confirm-password"
         $validator->validateRequired('confirm-password', $confirmPassword, "La confirmation du mot de passe est obligatoire.");
         $validator->validateMatch('confirm-password', $password, $confirmPassword, "Les mots de passe ne correspondent pas.");
 
-        // Si le validateur a détecté des erreurs, renvoie le formulaire avec les erreurs et les anciennes saisies
-        if ($validator->hasErrors()) {
-            $this->errors = $validator->getErrors();
-            $this->addData('old', $this->getOld([
-                'nickname' => $nickname,
-                'email'    => $email,
-            ]));
-            $this->showRegisterForm();
-            return;
-        }
+        return $validator;
+    }
 
-        // Hashage sécurisé du mot de passe avant stockage en base de données
-        $storedHash = password_hash($password, PASSWORD_DEFAULT);
+    /**
+     * Gère le cas d'un jeton CSRF invalide.
+     */
+    private function handleInvalidCsrf(): void
+    {
+        $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+        $this->showRegisterForm();
+    }
 
-        $userModel = $this->userModel;
+    /**
+     * Gère les erreurs de validation.
+     */
+    private function handleValidationErrors(Validator $validator, string $nickname, string $email): void
+    {
+        $this->errors = $validator->getErrors();
+        $this->addData('old', $this->getOld([
+            'nickname' => $nickname,
+            'email'    => $email,
+        ]));
+        $this->showRegisterForm();
+    }
 
-        // Vérification que le pseudo choisi n'est pas déjà utilisé
-        if ($userModel->getUserByNickname($nickname)) {
-            $this->addError('nickname', "Ce pseudo est déjà utilisé. Veuillez en choisir un autre.");
-            $this->addData('old', $this->getOld([
-                'nickname' => $nickname,
-                'email'    => $email,
-            ]));
-            $this->showRegisterForm();
-            return;
-        }
+    /**
+     * Gère le cas où le pseudo est déjà utilisé.
+     */
+    private function handleNicknameTaken(string $nickname, string $email): void
+    {
+        $this->addError('nickname', "Ce pseudo est déjà utilisé. Veuillez en choisir un autre.");
+        $this->addData('old', $this->getOld([
+            'nickname' => $nickname,
+            'email'    => $email,
+        ]));
+        $this->showRegisterForm();
+    }
 
-        // Vérification que le mail choisi n'est pas déjà utilisé
-        if ($userModel->getUserByEmail($email)) {
-            $this->addError('email', "Cet email est déjà utilisé. Veuillez en choisir un autre.");
-            $this->addData('old', $this->getOld([
-                'nickname' => $nickname,
-                'email'    => $email,
-            ]));
-            $this->showRegisterForm();
-            return;
-        }
+    /**
+     * Gère le cas où l'email est déjà utilisé.
+     */
+    private function handleEmailTaken(string $nickname, string $email): void
+    {
+        $this->addError('email', "Cet email est déjà utilisé. Veuillez en choisir un autre.");
+        $this->addData('old', $this->getOld([
+            'nickname' => $nickname,
+            'email'    => $email,
+        ]));
+        $this->showRegisterForm();
+    }
 
-        // Création de l'utilisateur en base de données via le modèle User
-        $success = $userModel->createUser($nickname, $email, $storedHash);
+    /**
+     * Gère l'échec de création de l'utilisateur.
+     */
+    private function handleUserCreationFailure(string $nickname, string $email): void
+    {
+        $this->addError('global', "Erreur lors de la création de l'utilisateur. Veuillez réessayer.");
+        $this->addData('old', $this->getOld([
+            'nickname' => $nickname,
+            'email'    => $email,
+        ]));
+        $this->showRegisterForm();
+    }
 
-        // En cas d'échec lors de la création de l'utilisateur, réaffichage du formulaire avec un message d'erreur
-        if (! $success) {
-            $this->addError('global', "Erreur lors de la création de l'utilisateur. Veuillez réessayer.");
-            $this->addData('old', $this->getOld([
-                'nickname' => $nickname,
-                'email'    => $email,
-            ]));
-            $this->showRegisterForm();
-            return;
-        }
-
-        // Connexion automatique de l'utilisateur nouvellement inscrit et redirection vers la page d'accueil
+    /**
+     * Connecte l'utilisateur nouvellement inscrit et le redirige.
+     */
+    private function loginAndRedirect(string $nickname): void
+    {
         $this->session->set('user', $nickname);
         $this->redirect('index');
-
     }
+
 }

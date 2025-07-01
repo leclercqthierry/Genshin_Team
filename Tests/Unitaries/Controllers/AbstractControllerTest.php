@@ -196,4 +196,23 @@ class AbstractControllerTest extends TestCase
         $_POST['csrf_token'] = 'wrong';
         $this->assertFalse($controller->callIsCsrfTokenValid());
     }
+
+    /**
+     * Vérifie que setOld() stocke correctement les anciennes valeurs du formulaire.
+     *
+     * @return void
+     */
+    public function testSetOldStoresOldData(): void
+    {
+        $controller = new DummyController(new Renderer($this->viewPath), new SessionManager());
+        $old        = ['day' => 'Lundi', 'note' => 'Test'];
+        // On utilise setOld pour stocker les anciennes valeurs
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('setOld');
+        $method->setAccessible(true);
+        $method->invoke($controller, $old);
+
+        // On vérifie que getOld retourne bien ces valeurs
+        $this->assertSame($old, $controller->callGetOld());
+    }
 }
