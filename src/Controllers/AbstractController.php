@@ -62,6 +62,11 @@ abstract class AbstractController
         $this->renderer = $renderer;
         $this->session  = $session;
 
+        // Génération du jeton CSRF s'il n'existe pas déjà
+        if (! $this->session->get('csrf_token')) {
+            $this->session->set('csrf_token', bin2hex(random_bytes(32)));
+        }
+
     }
 
     /**
@@ -209,7 +214,6 @@ abstract class AbstractController
      */
     public function setCurrentRoute(string $route): void
     {
-        // Optionnel : stocker la route si besoin
         // $this->currentRoute = $route;
     }
 }

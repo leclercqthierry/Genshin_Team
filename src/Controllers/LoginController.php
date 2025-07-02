@@ -56,11 +56,6 @@ class LoginController extends AbstractController
         $this->session        = $session;
         $this->userModel      = $userModel ?: new User($logger);
 
-        // Génération d'un jeton CSRF s'il n'est pas déjà défini afin de sécuriser la session
-        if (! $this->session->get('csrf_token')) {
-            $this->session->set('csrf_token', bin2hex(random_bytes(32)));
-        }
-
         // Initialisation du compteur de tentatives de connexion
         $this->session->set('login_attempts', $this->session->get('login_attempts', 0));
     }

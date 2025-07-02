@@ -56,11 +56,6 @@ class RegisterController extends AbstractController
         $this->session        = $session;
         $this->session->start();
 
-        // Génération d'un jeton CSRF s'il n'est pas déjà défini afin de sécuriser le formulaire d'inscription
-        if (! $this->session->get('csrf_token')) {
-            $this->session->set('csrf_token', bin2hex(random_bytes(32)));
-        }
-
         $this->userModel = $userModel ?: new User($logger);
 
     }

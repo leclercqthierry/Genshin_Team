@@ -27,6 +27,8 @@ class FarmDaysControllerTest extends TestCase
         $this->viewPath = sys_get_temp_dir() . '/views_' . uniqid();
         @mkdir($this->viewPath, 0777, true);
         @mkdir($this->viewPath . '/farm-days', 0777, true);
+        @mkdir($this->viewPath . '/partials', 0777, true);
+
         @mkdir($this->viewPath . '/templates', 0777, true);
 
         // Création de vues minimales pour simuler les rendus attendus
@@ -36,13 +38,19 @@ class FarmDaysControllerTest extends TestCase
             '<?php if (isset($mode) && $mode === "edit") { echo "<button>Modifier</button>"; } ?><?php if (!empty($errors["global"])) echo $errors["global"]; ?><?php if (!empty($errors["day"])) echo $errors["day"]; ?><form>add</form>'
         );
         file_put_contents(
-            $this->viewPath . '/farm-days/farm-days-select.php',
+            $this->viewPath . '/partials/select-item.php',
             // Affiche les erreurs globales puis le select
             '<?php if (!empty($errors["global"])) echo $errors["global"]; ?><select>select</select>'
         );
         file_put_contents($this->viewPath . '/farm-days/delete-farm-days-confirm.php', '<form>delete</form>');
         file_put_contents($this->viewPath . '/farm-days/farm-days-list.php', '<ul>list</ul>');
         file_put_contents($this->viewPath . '/templates/default.php', '<html><?= $title ?? "" ?><?= $content ?? "" ?></html>');
+
+        // Génère un token CSRF valide pour tous les tests
+        $csrf                   = bin2hex(random_bytes(32));
+        $_SESSION['csrf_token'] = $csrf;
+        $_POST['csrf_token']    = $csrf;
+
     }
 
     /**
@@ -51,10 +59,11 @@ class FarmDaysControllerTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->viewPath . '/farm-days/add-farm-days.php');
-        @unlink($this->viewPath . '/farm-days/farm-days-select.php');
         @unlink($this->viewPath . '/farm-days/delete-farm-days-confirm.php');
         @unlink($this->viewPath . '/farm-days/farm-days-list.php');
         @unlink($this->viewPath . '/templates/default.php');
+        @unlink($this->viewPath . '/partials/select-item.php');
+        @rmdir($this->viewPath . '/partials');
         @rmdir($this->viewPath . '/farm-days');
         @rmdir($this->viewPath . '/templates');
         @rmdir($this->viewPath);
@@ -152,6 +161,30 @@ class FarmDaysControllerTest extends TestCase
 
         $this->assertIsString($output);
         $this->assertStringContainsString('Erreur lors de l\'ajout.', $output);
+    }
+    /**
+     * Vérifie la gestion d'une requête POST sans token CSRF valide.
+     *
+     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
+     * renvoie un message d'erreur approprié.
+     */
+    public function testHandleAddCsrfInvalid(): void
+    {
+        $model                     = $this->createMock(FarmDays::class);
+        $controller                = $this->getController($model, 'add-farm-days');
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST['days']             = ['Lundi', 'Mardi'];
+        // Simule un token CSRF invalide
+        $_POST['csrf_token']    = 'invalid';
+        $_SESSION['csrf_token'] = 'valid';
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
+        $this->assertStringContainsString('<form>add</form>', $output);
     }
 
     /**
@@ -287,6 +320,32 @@ class FarmDaysControllerTest extends TestCase
         $this->assertStringContainsString('ID invalide', $output);
         $this->assertStringContainsString('<select>select</select>', $output); // formulaire de sélection affiché
     }
+    /**
+     * Vérifie la gestion d'une requête POST sans token CSRF valide lors de l'édition.
+     *
+     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
+     * renvoie un message d'erreur approprié.
+     */
+    public function testHandleEditCsrfInvalid(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
+        $controller                = $this->getController($model, 'edit-farm-days');
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST['edit_id']          = 1;
+        $_POST['days']             = ['Lundi'];
+        $_POST['csrf_token']       = 'invalid';
+        $_SESSION['csrf_token']    = 'valid';
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
+        // Ici, le formulaire de sélection est réaffiché
+        $this->assertStringContainsString('<select>select</select>', $output);
+    }
 
     /**
      * Vérifie l'affichage du formulaire de sélection pour la suppression.
@@ -400,6 +459,33 @@ class FarmDaysControllerTest extends TestCase
         $this->assertIsString($output);
         // Vérifie que le formulaire de confirmation est affiché
         $this->assertStringContainsString('<form>delete</form>', $output);
+    }
+
+    /**
+     * Vérifie la gestion d'une requête POST sans token CSRF valide lors de la suppression.
+     *
+     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
+     * renvoie un message d'erreur approprié.
+     */
+    public function testHandleDeleteCsrfInvalid(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
+        $controller                = $this->getController($model, 'delete-farm-days');
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        $_POST['delete_id']        = 1;
+        $_POST['confirm_delete']   = 1;
+        $_POST['csrf_token']       = 'invalid';
+        $_SESSION['csrf_token']    = 'valid';
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
+        // Ici, le formulaire de sélection est réaffiché
+        $this->assertStringContainsString('<select>select</select>', $output);
     }
 
     /**

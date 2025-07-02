@@ -4,7 +4,6 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Connexion\Database;
-use GenshinTeam\Controllers\AbstractController;
 use GenshinTeam\Models\FarmDays;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
@@ -20,25 +19,8 @@ use Psr\Log\LoggerInterface;
  *
  * Utilise un modèle FarmDays pour interagir avec la BDD.
  */
-class FarmDaysController extends AbstractController
+class FarmDaysController extends AbstractCrudController
 {
-    /** @var LoggerInterface Logger pour journaliser les erreurs ou événements métier.
-     * @phpstan-ignore-next-line
-     */
-    private LoggerInterface $logger;
-
-    /** @var ErrorPresenterInterface Utilitaire pour formater les erreurs affichées.
-     * @phpstan-ignore-next-line
-     */
-    private ErrorPresenterInterface $errorPresenter;
-
-    /** @var FarmDays Modèle métier pour accéder aux données des jours de farm.
-     */
-    private FarmDays $farmDaysModel;
-
-    /** @var string Nom de la route courante, utilisée dans le dispatch interne. */
-    private string $currentRoute = '';
-
     /**
      * Constructeur principal du contrôleur.
      *
@@ -55,56 +37,37 @@ class FarmDaysController extends AbstractController
         SessionManager $session,
         ?FarmDays $farmDaysModel = null
     ) {
-        parent::__construct($renderer, $session);
-        $this->logger         = $logger;
-        $this->errorPresenter = $errorPresenter;
-        $this->farmDaysModel  = $farmDaysModel ?: new FarmDays(Database::getInstance(), $logger);
+        parent::__construct(
+            $renderer,
+            $logger,
+            $errorPresenter,
+            $session,
+            $farmDaysModel ?: new FarmDays(Database::getInstance(), $logger)
+        );
+
     }
 
-    /**
-     * Déclare le nom de route courant (ex: 'add-farm-days').
-     *
-     * @param string $route Route courante appelée.
-     */
-    public function setCurrentRoute(string $route): void
-    {
-        $this->currentRoute = $route;
-    }
-
-    /**
-     * Dispatch vers l'action correspondant à la route.
-     */
-    public function handleRequest(): void
-    {
-        switch ($this->currentRoute) {
-            case 'add-farm-days':
-                $this->handleAdd();
-                break;
-            case 'edit-farm-days':
-                $this->handleEdit();
-                break;
-            case 'delete-farm-days':
-                $this->handleDelete();
-                break;
-            default:
-                $this->showList();
-        }
-    }
-
-    /**
-     * Point d’entrée du contrôleur — méthode publique appelée par le routeur.
-     */
-    public function run(): void
-    {
-        $this->handleRequest();
-    }
+    protected function getAddRoute(): string
+    {return 'add-farm-days';}
+    protected function getEditRoute(): string
+    {return 'edit-farm-days';}
+    protected function getDeleteRoute(): string
+    {return 'delete-farm-days';}
 
     /**
      * Gère l'ajout d'un ou plusieurs jours de farm via POST.
      */
-    private function handleAdd(): void
+    protected function handleAdd(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Protection CSRF
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $this->showAddForm();
+                return;
+            }
+
+            // Récupération des jours postés depuis le formulaire
             $days = $this->getPostedDays();
             if ($this->isDaysEmpty($days)) {
                 $this->handleAddEmptyDays($days);
@@ -169,7 +132,7 @@ class FarmDaysController extends AbstractController
     private function processAdd(array $days): void
     {
         $daysString = implode('/', $days);
-        $result     = $this->farmDaysModel->add($daysString);
+        $result     = $this->model->add($daysString);
 
         if ($result) {
             $this->addData('title', 'Succès');
@@ -199,7 +162,7 @@ class FarmDaysController extends AbstractController
     /**
      * Gère l’édition d’un jour de farm sélectionné.
      */
-    private function handleEdit(): void
+    protected function handleEdit(): void
     {
         if (! isset($_POST['edit_id'])) {
             $this->showEditSelectForm();
@@ -214,6 +177,13 @@ class FarmDaysController extends AbstractController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['days'])) {
+            // Protection CSRF
+            // Vérifie si le token CSRF est valide avant de traiter la requête
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $this->showEditSelectForm();
+                return;
+            }
             $days = $_POST['days'];
 
             /** @var array<int, string> $days */
@@ -273,7 +243,7 @@ class FarmDaysController extends AbstractController
         $daysString = implode('/', $days);
 
         // Tentative de mise à jour via le modèle
-        $result = $this->farmDaysModel->update($id, $daysString);
+        $result = $this->model->update($id, $daysString);
 
         if ($result) {
             // Succès : feedback utilisateur
@@ -294,15 +264,17 @@ class FarmDaysController extends AbstractController
     private function showEditSelectForm(): void
     {
         /** @var list<array{id_farm_days: int, days: string}> $all */
-        $all = $this->farmDaysModel->getAll();
+        $all = $this->model->getAll();
 
         $this->addData('title', 'Choisir les jours à éditer');
-        $this->addData('content', $this->renderer->render('farm-days/farm-days-select', [
+        $this->addData('content', $this->renderer->render('partials/select-item', [
             'action'      => 'edit-farm-days',
             'fieldName'   => 'edit_id',
             'buttonLabel' => 'Éditer',
             'title'       => 'Choisir les jours de farm à éditer',
-            'farmDays'    => $all,
+            'items'       => $all,           // <-- nom générique
+            'nameField'   => 'days',         // <-- champ à afficher
+            'idField'     => 'id_farm_days', // <-- champ ID
             'errors'      => $this->getErrors(),
         ]));
         $this->renderDefault();
@@ -316,7 +288,7 @@ class FarmDaysController extends AbstractController
     private function showEditForm(int $id): void
     {
         /** @var array{id_farm_days: int, days: string}|null $record */
-        $record = $this->farmDaysModel->get($id);
+        $record = $this->model->get($id);
 
         if (! $record) {
             $this->addError('global', 'Jour(s) de farm introuvable(s).');
@@ -342,7 +314,7 @@ class FarmDaysController extends AbstractController
     /**
      * Gère la suppression d’un jour sélectionné (confirmée ou pas).
      */
-    private function handleDelete(): void
+    protected function handleDelete(): void
     {
         if (! isset($_POST['delete_id'])) {
             $this->showDeleteSelectForm();
@@ -357,6 +329,13 @@ class FarmDaysController extends AbstractController
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
+            // Protection CSRF
+            // Vérifie si le token CSRF est valide avant de traiter la requête
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $this->showDeleteSelectForm();
+                return;
+            }
             $this->processDelete($id);
         } else {
             $this->showDeleteConfirmForm($id);
@@ -371,7 +350,7 @@ class FarmDaysController extends AbstractController
 
     private function processDelete(int $id): void
     {
-        $result = $this->farmDaysModel->delete($id);
+        $result = $this->model->delete($id);
 
         if ($result) {
             $this->addData('title', 'Succès');
@@ -389,16 +368,18 @@ class FarmDaysController extends AbstractController
     private function showDeleteSelectForm(): void
     {
         /** @var list<array{id_farm_days: int, days: string}> $all */
-        $all = $this->farmDaysModel->getAll();
+        $all = $this->model->getAll();
 
         $this->addData('title', 'Choisir les jours à supprimer');
 
-        $this->addData('content', $this->renderer->render('farm-days/farm-days-select', [
+        $this->addData('content', $this->renderer->render('partials/select-item', [
             'action'      => 'delete-farm-days',
             'fieldName'   => 'delete_id',
             'buttonLabel' => 'Supprimer',
             'title'       => 'Choisir les jours de farm à supprimer',
-            'farmDays'    => $all,
+            'items'       => $all,           // <-- nom générique
+            'nameField'   => 'days',         // <-- champ à afficher
+            'idField'     => 'id_farm_days', // <-- champ ID
             'errors'      => $this->getErrors(),
         ]));
 
@@ -413,7 +394,7 @@ class FarmDaysController extends AbstractController
     private function showDeleteConfirmForm(int $id): void
     {
         /** @var array{id_farm_days: int, days: string}|null $record */
-        $record = $this->farmDaysModel->get($id);
+        $record = $this->model->get($id);
 
         if (! $record) {
             $this->addError('global', 'Jour(s) de farm introuvable(s).');
@@ -435,10 +416,10 @@ class FarmDaysController extends AbstractController
     /**
      * Affiche la liste complète des jours de farm existants.
      */
-    private function showList(): void
+    protected function showList(): void
     {
         /** @var list<array{id_farm_days: int, days: string}> $all */
-        $all = $this->farmDaysModel->getAll();
+        $all = $this->model->getAll();
 
         $this->addData('title', 'Liste des jours de farm');
 

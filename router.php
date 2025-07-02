@@ -57,6 +57,10 @@ $router->addRoute('add-farm-days', 'FarmDaysController');
 $router->addRoute('edit-farm-days', 'FarmDaysController');
 $router->addRoute('delete-farm-days', 'FarmDaysController');
 $router->addRoute('farm-days-list', 'FarmDaysController');
+$router->addRoute('add-stat', 'StatController');
+$router->addRoute('edit-stat', 'StatController');
+$router->addRoute('delete-stat', 'StatController');
+$router->addRoute('stats-list', 'StatController');
 
 // Gestion globale des erreurs
 try {
