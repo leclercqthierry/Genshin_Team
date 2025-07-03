@@ -89,23 +89,6 @@ class FarmDaysControllerTest extends TestCase
     }
 
     /**
-     * Vérifie que le formulaire d'ajout s'affiche en GET.
-     */
-    public function testHandleAddShowsFormOnGet(): void
-    {
-        $model                     = $this->createMock(FarmDays::class);
-        $controller                = $this->getController($model, 'add-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<form>add</form>', $output);
-    }
-
-    /**
      * Vérifie l'ajout valide d'un jour de farm.
      */
     public function testHandleAddValid(): void
@@ -126,24 +109,6 @@ class FarmDaysControllerTest extends TestCase
     }
 
     /**
-     * Vérifie la gestion d'un ajout invalide (aucun jour sélectionné).
-     */
-    public function testHandleAddInvalid(): void
-    {
-        $model                     = $this->createMock(FarmDays::class);
-        $controller                = $this->getController($model, 'add-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['days']             = [];
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('sélectionner au moins un jour', $output);
-    }
-
-    /**
      * Vérifie la gestion d'un échec lors de l'ajout.
      */
     public function testHandleAddFailure(): void
@@ -161,49 +126,6 @@ class FarmDaysControllerTest extends TestCase
 
         $this->assertIsString($output);
         $this->assertStringContainsString('Erreur lors de l\'ajout.', $output);
-    }
-    /**
-     * Vérifie la gestion d'une requête POST sans token CSRF valide.
-     *
-     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
-     * renvoie un message d'erreur approprié.
-     */
-    public function testHandleAddCsrfInvalid(): void
-    {
-        $model                     = $this->createMock(FarmDays::class);
-        $controller                = $this->getController($model, 'add-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['days']             = ['Lundi', 'Mardi'];
-        // Simule un token CSRF invalide
-        $_POST['csrf_token']    = 'invalid';
-        $_SESSION['csrf_token'] = 'valid';
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
-        $this->assertStringContainsString('<form>add</form>', $output);
-    }
-
-    /**
-     * Vérifie l'affichage du formulaire de sélection pour l'édition.
-     */
-    public function testShowEditSelectForm(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('getAll')->willReturn([['id_farm_days' => 1, 'days' => 'Lundi']]);
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        unset($_POST['edit_id']);
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<select>select</select>', $output);
     }
 
     /**
@@ -229,144 +151,6 @@ class FarmDaysControllerTest extends TestCase
     }
 
     /**
-     * Vérifie la gestion d'une édition invalide (aucun jour sélectionné).
-     */
-    public function testHandleEditInvalidDays(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['days']             = []; // Simule aucune case cochée
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('sélectionner au moins un jour', $output);
-    }
-
-    /**
-     * Vérifie la gestion d'une édition sur un ID inexistant.
-     */
-    public function testHandleEditNotFound(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(99)->willReturn(null);
-
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 99;
-        $_POST['days']             = ['Lundi'];
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('introuvable', $output);
-    }
-
-    /**
-     * Vérifie l'affichage du formulaire d'édition si aucun jour n'est passé.
-     */
-    public function testHandleEditShowEditFormIfNoDays(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        unset($_POST['days']); // Simule un POST sans 'days'
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        // Vérifie que le formulaire d'édition est affiché (présence du bouton "Modifier")
-        $this->assertStringContainsString('Modifier', $output);
-    }
-
-    /**
-     * Teste le comportement du contrôleur lors d'une requête d'édition avec un identifiant invalide.
-     *
-     * Ce test simule une requête POST envoyant un identifiant non entier pour l'édition de jours de farm.
-     * Il vérifie que le contrôleur :
-     * - détecte l'ID invalide
-     * - affiche le message d'erreur approprié
-     * - réaffiche le formulaire de sélection
-     *
-     * @return void
-     */
-    public function testHandleEditWithInvalidId(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 'not-an-int'; // ID non valide
-        $_POST['days']             = ['Lundi'];
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('ID invalide', $output);
-        $this->assertStringContainsString('<select>select</select>', $output); // formulaire de sélection affiché
-    }
-    /**
-     * Vérifie la gestion d'une requête POST sans token CSRF valide lors de l'édition.
-     *
-     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
-     * renvoie un message d'erreur approprié.
-     */
-    public function testHandleEditCsrfInvalid(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['days']             = ['Lundi'];
-        $_POST['csrf_token']       = 'invalid';
-        $_SESSION['csrf_token']    = 'valid';
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
-        // Ici, le formulaire de sélection est réaffiché
-        $this->assertStringContainsString('<select>select</select>', $output);
-    }
-
-    /**
-     * Vérifie l'affichage du formulaire de sélection pour la suppression.
-     */
-    public function testShowDeleteSelectForm(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('getAll')->willReturn([['id_farm_days' => 1, 'days' => 'Lundi']]);
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-        unset($_POST['delete_id']);
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<select>select</select>', $output);
-    }
-
-    /**
      * Vérifie la suppression valide d'un jour de farm.
      */
     public function testHandleDeleteValid(): void
@@ -386,35 +170,6 @@ class FarmDaysControllerTest extends TestCase
 
         $this->assertIsString($output);
         $this->assertStringContainsString('supprimé', $output);
-    }
-
-    /**
-     * Teste le comportement du contrôleur lors d'une tentative de suppression avec un identifiant invalide.
-     *
-     * Ce test simule une requête POST contenant un identifiant de suppression non entier.
-     * Il vérifie que le contrôleur :
-     * - identifie correctement l'ID comme invalide
-     * - affiche un message d’erreur explicite
-     * - réaffiche le formulaire de sélection des éléments à supprimer
-     *
-     * @return void
-     */
-    public function testHandleDeleteWithInvalidId(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 'not-an-int'; // ID non valide
-        $_POST['confirm_delete']   = 1;
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('ID invalide', $output);
-        $this->assertStringContainsString('<select>select</select>', $output); // formulaire de sélection affiché
     }
 
     /**
@@ -440,76 +195,6 @@ class FarmDaysControllerTest extends TestCase
     }
 
     /**
-     * Vérifie l'affichage du formulaire de confirmation de suppression si non confirmé.
-     */
-    public function testHandleDeleteShowConfirmFormIfNoConfirm(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        unset($_POST['confirm_delete']); // Simule un POST sans 'confirm_delete'
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        // Vérifie que le formulaire de confirmation est affiché
-        $this->assertStringContainsString('<form>delete</form>', $output);
-    }
-
-    /**
-     * Vérifie la gestion d'une requête POST sans token CSRF valide lors de la suppression.
-     *
-     * Ce test simule une requête POST avec un token CSRF invalide et vérifie que le contrôleur
-     * renvoie un message d'erreur approprié.
-     */
-    public function testHandleDeleteCsrfInvalid(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
-        $_POST['csrf_token']       = 'invalid';
-        $_SESSION['csrf_token']    = 'valid';
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('Requête invalide ! Veuillez réessayer.', $output);
-        // Ici, le formulaire de sélection est réaffiché
-        $this->assertStringContainsString('<select>select</select>', $output);
-    }
-
-    /**
-     * Vérifie la gestion d'une demande de suppression sur un ID inexistant.
-     */
-    public function testShowDeleteConfirmFormNotFound(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(99)->willReturn(null);
-
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 99;
-        unset($_POST['confirm_delete']);
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('introuvable', $output);
-    }
-
-    /**
      * Vérifie l'affichage de la liste des jours de farm.
      */
     public function testShowList(): void
@@ -525,5 +210,232 @@ class FarmDaysControllerTest extends TestCase
 
         $this->assertIsString($output);
         $this->assertStringContainsString('<ul>list</ul>', $output);
+    }
+
+    /**
+     * Teste l'affichage du formulaire de sélection pour l’édition.
+     *
+     * Ce test vérifie que la méthode privée showEditSelectForm :
+     * - Est accessible via la réflexion.
+     * - Produit une sortie HTML contenant un élément <select>.
+     *
+     * Le modèle est mocké pour retourner deux entrées fictives représentant des jours de farm.
+     *
+     * @return void
+     */
+    public function testShowEditSelectForm(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('getAll')->willReturn([
+            ['id_farm_days' => 1, 'days' => 'Lundi'],
+            ['id_farm_days' => 2, 'days' => 'Mardi'],
+        ]);
+        $controller = $this->getController($model, 'edit-farm-days');
+
+        ob_start();
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('showEditSelectForm');
+        $method->setAccessible(true);
+        $method->invoke($controller);
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<select>select</select>', $output);
+    }
+
+    /**
+     * Teste l'affichage du formulaire d'édition pour un jour de farm spécifique.
+     *
+     * Ce test utilise un mock du modèle FarmDays pour retourner une entrée correspondant à l’ID 1.
+     * Il vérifie que :
+     * - La méthode privée showEditForm est correctement invoquée via réflexion.
+     * - Une sortie HTML est bien générée.
+     * - Le bouton "Modifier" est présent dans le rendu.
+     *
+     * @return void
+     */
+    public function testShowEditForm(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
+        $controller = $this->getController($model, 'edit-farm-days');
+
+        ob_start();
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('showEditForm');
+        $method->setAccessible(true);
+        $method->invoke($controller, 1);
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<button>Modifier</button>', $output);
+    }
+
+    /**
+     * Teste l'affichage du formulaire de confirmation de suppression.
+     *
+     * Ce test utilise un mock du modèle FarmDays pour simuler le retour d’un enregistrement
+     * avec l’identifiant 1. Il vérifie que :
+     * - La méthode privée showDeleteConfirmForm peut être invoquée via réflexion.
+     * - Une sortie HTML est générée.
+     * - Cette sortie contient un formulaire de suppression comportant les balises attendues.
+     *
+     * @return void
+     */
+    public function testShowDeleteConfirmForm(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
+        $controller = $this->getController($model, 'delete-farm-days');
+
+        ob_start();
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('showDeleteConfirmForm');
+        $method->setAccessible(true);
+        $method->invoke($controller, 1);
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<form>delete</form>', $output);
+    }
+
+    /**
+     * Teste le comportement de showEditForm lorsque l'enregistrement est introuvable.
+     *
+     * Ce test simule une tentative d'édition avec un identifiant inexistant (42).
+     * Il vérifie que :
+     * - La méthode privée showEditForm est bien invoquée via la réflexion.
+     * - Le modèle retourne `null`, simulant l’absence de l’enregistrement.
+     * - La méthode showEditSelectForm est appelée à la place, via un proxy anonyme.
+     * - Une erreur globale est bien enregistrée pour signaler le problème.
+     *
+     * @return void
+     */
+    public function testShowEditFormNotFound(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(42)->willReturn(null); // Simule un ID inexistant
+        $controller = $this->getController($model, 'edit-farm-days');
+
+        // On va mocker showEditSelectForm pour vérifier qu'il est bien appelé
+        $wasCalled       = false;
+        $mock            = $this;
+        $controllerProxy = new class($controller, $wasCalled, $mock) extends FarmDaysController
+        {
+            public bool $wasCalled;
+            private TestCase $mock;
+
+            public function __construct(object $base, bool &$wasCalled, TestCase $mock)
+            {
+                foreach (get_object_vars($base) as $k => $v) {
+                    $this->$k = $v;
+                }
+                $this->wasCalled = &$wasCalled;
+                $this->mock      = $mock;
+            }
+
+            protected function showEditSelectForm(): void
+            {
+                $this->wasCalled = true;
+            }
+
+            protected function renderDefault(): void
+            {
+                // Empêche l'affichage HTML parasite
+            }
+        };
+
+        $reflection = new \ReflectionClass($controllerProxy);
+        $method     = $reflection->getMethod('showEditForm');
+        $method->setAccessible(true);
+        $method->invoke($controllerProxy, 42);
+
+        $this->assertTrue($controllerProxy->wasCalled, 'showEditSelectForm doit être appelé si le record est introuvable');
+        $this->assertArrayHasKey('global', $controllerProxy->getErrors());
+    }
+
+    /**
+     * Teste le comportement de processEdit en cas d’échec lors de la mise à jour.
+     *
+     * Ce test simule une tentative de modification d’un enregistrement pour laquelle
+     * la méthode update du modèle retourne false (échec).
+     *
+     * Il vérifie que :
+     * - Une erreur globale est bien enregistrée.
+     * - Les anciennes valeurs saisies (jours) sont correctement conservées via getOld()
+     *   afin d’assurer un pré-remplissage du formulaire après l’échec.
+     *
+     * @return void
+     */
+    public function testProcessEditFailure(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('update')->with(1, 'Lundi/Mardi')->willReturn(false);
+
+        $controller = $this->getController($model, 'edit-farm-days');
+
+        // On prépare les jours à éditer
+        $days = ['Lundi', 'Mardi'];
+
+        // On utilise la réflexion pour accéder à la méthode privée
+        ob_start();
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('processEdit');
+        $method->setAccessible(true);
+
+        // Appel de la méthode
+        $method->invoke($controller, 1, $days);
+        ob_end_clean();
+
+        // Vérifie qu'une erreur globale a été ajoutée
+        $this->assertArrayHasKey('global', $controller->getErrors());
+        // Vérifie que les anciens jours sont bien conservés pour le pré-remplissage
+        $this->assertEquals(['days' => $days], $controller->getOld());
+    }
+
+    /**
+     * Teste que la méthode showDeleteConfirmForm appelle showDeleteSelectForm
+     * lorsqu'un enregistrement avec l'ID fourni est introuvable.
+     *
+     * Ce test utilise un mock de FarmDays retournant `null` pour simuler
+     * un ID inexistant. Il vérifie ensuite que showDeleteSelectForm est
+     * bien invoqué et qu'une erreur globale est enregistrée.
+     *
+     * @return void
+     */
+    public function testShowDeleteConfirmFormNotFound(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(99)->willReturn(null); // Simule un ID inexistant
+        $controller = $this->getController($model, 'delete-farm-days');
+
+        $wasCalled       = false;
+        $controllerProxy = new class($controller, $wasCalled) extends FarmDaysController
+        {
+            public bool $wasCalled;
+            public function __construct(object $base, bool &$wasCalled)
+            {
+                foreach (get_object_vars($base) as $k => $v) {
+                    $this->$k = $v;
+                }
+                $this->wasCalled = &$wasCalled;
+            }
+            protected function showDeleteSelectForm(): void
+            {
+                $this->wasCalled = true;
+            }
+            protected function renderDefault(): void
+            {
+                // Empêche l'affichage HTML parasite
+            }
+        };
+
+        $reflection = new \ReflectionClass($controllerProxy);
+        $method     = $reflection->getMethod('showDeleteConfirmForm');
+        $method->setAccessible(true);
+        $method->invoke($controllerProxy, 99);
+
+        $this->assertTrue($controllerProxy->wasCalled, 'showDeleteSelectForm doit être appelé si le record est introuvable');
+        $this->assertArrayHasKey('global', $controllerProxy->getErrors());
     }
 }

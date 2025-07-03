@@ -47,76 +47,50 @@ class FarmDaysController extends AbstractCrudController
 
     }
 
+    /**
+     * Retourne la route permettant d’ajouter des jours de farm.
+     *
+     * @return string
+     */
     protected function getAddRoute(): string
-    {return 'add-farm-days';}
+    {
+        return 'add-farm-days';
+    }
+
+    /**
+     * Retourne la route permettant de modifier des jours de farm.
+     *
+     * @return string
+     */
     protected function getEditRoute(): string
-    {return 'edit-farm-days';}
+    {
+        return 'edit-farm-days';
+    }
+
+    /**
+     * Retourne la route permettant de supprimer des jours de farm.
+     *
+     * @return string
+     */
     protected function getDeleteRoute(): string
-    {return 'delete-farm-days';}
+    {
+        return 'delete-farm-days';
+    }
 
     /**
      * Gère l'ajout d'un ou plusieurs jours de farm via POST.
      */
     protected function handleAdd(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Protection CSRF
-            if (! $this->isCsrfTokenValid()) {
-                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
-                $this->showAddForm();
-                return;
-            }
-
-            // Récupération des jours postés depuis le formulaire
-            $days = $this->getPostedDays();
-            if ($this->isDaysEmpty($days)) {
-                $this->handleAddEmptyDays($days);
-                return;
-            }
-            $this->processAdd($days);
-        } else {
-            $this->showAddForm();
-        }
-    }
-
-    /**
-     * Récupère les jours postés depuis le formulaire.
-     *
-     * @return array<int, string>
-     */
-    private function getPostedDays(): array
-    {
-        $days = $_POST['days'] ?? [];
-        // On filtre pour ne garder que les chaînes
-        /** @var array<int, string> $days */
-        return array_values(array_filter($days, 'is_string'));
-
-    }
-
-    /**
-     * Vérifie si la liste des jours est vide.
-     *
-     * @param array<int, string> $days
-     */
-    private function isDaysEmpty(array $days): bool
-    {
-        return empty($days);
-    }
-
-    /**
-     * Gère le cas où aucun jour de farm n’a été sélectionné par l'utilisateur.
-     *
-     * Affiche le formulaire avec un message d’erreur et conserve les données précédemment envoyées.
-     *
-     * @param array<int, string> $days Liste des jours envoyés, même si vide ou invalide
-     *
-     * @return void
-     */
-    private function handleAddEmptyDays(array $days): void
-    {
-        $this->addError('day', 'Veuillez sélectionner au moins un jour.');
-        $this->setOld(['days' => $days]);
-        $this->showAddForm();
+        $this->handleCrudAdd(
+            'days',
+            fn($v) => empty($v) || ! is_array($v),
+            fn($v) => $this->processAdd(array_map(
+                fn($item): string => is_scalar($item) || $item === null ? (string) $item : '',
+                is_array($v) ? array_values($v) : []
+            )),
+            fn()   => $this->showAddForm()
+        );
     }
 
     /**
@@ -155,6 +129,7 @@ class FarmDaysController extends AbstractCrudController
             'errors' => $this->getErrors(),
             'old'    => $this->getOld(),
             'mode'   => 'add',
+            'isEdit' => false,
         ]));
         $this->renderDefault();
     }
@@ -164,65 +139,26 @@ class FarmDaysController extends AbstractCrudController
      */
     protected function handleEdit(): void
     {
-        if (! isset($_POST['edit_id'])) {
-            $this->showEditSelectForm();
-            return;
-        }
-
-        $id = $this->getEditId();
-        if ($id === false) {
-            $this->addError('global', 'ID invalide.');
-            $this->showEditSelectForm();
-            return;
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['days'])) {
-            // Protection CSRF
-            // Vérifie si le token CSRF est valide avant de traiter la requête
-            if (! $this->isCsrfTokenValid()) {
-                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
-                $this->showEditSelectForm();
-                return;
-            }
-            $days = $_POST['days'];
-
-            /** @var array<int, string> $days */
-            if ($this->isDaysEmpty($days)) {
-                $this->handleEditEmptyDays($id, $days);
-                return;
-            }
-            $this->processEdit($id, $days);
-        } else {
-            $this->showEditForm($id);
-        }
+        $this->handleCrudEdit(
+            'days',
+            fn($v)      => empty($v) || ! is_array($v),
+            fn($id, $v) => $this->processEdit(
+                is_numeric($id) ? (int) $id : 0,
+                array_map(
+                    fn($item): string => is_scalar($item) || $item === null ? (string) $item : '',
+                    is_array($v) ? array_values($v) : []
+                )
+            ),
+            fn($id)     => $this->showEditForm(is_numeric($id) ? (int) $id : 0),
+            fn()        => $this->showEditSelectForm(),
+            fn()        => $this->getEditId()
+        );
     }
 
     private function getEditId(): int | false
     {
         $rawId = $_POST['edit_id'];
         return filter_var($rawId, FILTER_VALIDATE_INT);
-    }
-
-    /**
-     * Gère le cas où aucun jour n’a été sélectionné lors de la modification.
-     *
-     * Affiche à nouveau le formulaire d’édition avec un message d’erreur
-     * et conserve les valeurs précédentes saisies.
-     *
-     * @param int                $id   Identifiant de l’entrée à modifier
-     * @param array<int, string> $days Liste des jours (possiblement vide ou incorrecte)
-     *
-     * @return void
-     */
-    private function handleEditEmptyDays(int $id, array $days): void
-    {
-        // Remplissage ancien et message d’erreur
-        $this->addError('day', 'Veuillez sélectionner au moins un jour.');
-        $this->setOld(['days' => $days]);
-
-        // Retour au formulaire d’édition
-        $this->showEditForm($id);
-
     }
 
     /**
@@ -261,7 +197,7 @@ class FarmDaysController extends AbstractCrudController
     /**
      * Affiche le formulaire de sélection d’un jour à éditer.
      */
-    private function showEditSelectForm(): void
+    protected function showEditSelectForm(): void
     {
         /** @var list<array{id_farm_days: int, days: string}> $all */
         $all = $this->model->getAll();
@@ -285,7 +221,7 @@ class FarmDaysController extends AbstractCrudController
      *
      * @param int $id Identifiant du jour à éditer.
      */
-    private function showEditForm(int $id): void
+    protected function showEditForm(int $id): void
     {
         /** @var array{id_farm_days: int, days: string}|null $record */
         $record = $this->model->get($id);
@@ -306,6 +242,7 @@ class FarmDaysController extends AbstractCrudController
             'errors' => $this->getErrors(),
             'old'    => $old,
             'mode'   => 'edit',
+            'isEdit' => true,
             'id'     => $id,
         ]));
         $this->renderDefault();
@@ -316,38 +253,31 @@ class FarmDaysController extends AbstractCrudController
      */
     protected function handleDelete(): void
     {
-        if (! isset($_POST['delete_id'])) {
-            $this->showDeleteSelectForm();
-            return;
-        }
-
-        $id = $this->getDeleteId();
-        if ($id === false) {
-            $this->addError('global', 'ID invalide.');
-            $this->showDeleteSelectForm();
-            return;
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
-            // Protection CSRF
-            // Vérifie si le token CSRF est valide avant de traiter la requête
-            if (! $this->isCsrfTokenValid()) {
-                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
-                $this->showDeleteSelectForm();
-                return;
-            }
-            $this->processDelete($id);
-        } else {
-            $this->showDeleteConfirmForm($id);
-        }
+        $this->handleCrudDelete(
+            fn()    => $this->getDeleteId(),
+            fn($id) => $this->processDelete(is_numeric($id) ? (int) $id : 0),
+            fn()    => $this->showDeleteSelectForm(),
+            fn($id) => $this->showDeleteConfirmForm(is_numeric($id) ? (int) $id : 0)
+        );
     }
 
+    /**
+     * Récupère l'identifiant à supprimer depuis les données POST.
+     *
+     * @return int|false Retourne l'identifiant sous forme d'entier s'il est valide, sinon false.
+     */
     private function getDeleteId(): int | false
     {
         $rawId = $_POST['delete_id'];
         return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
+    /**
+     * Traite la suppression d’un jour de farm selon l’identifiant fourni.
+     *
+     * @param int $id L’identifiant du jour de farm à supprimer.
+     * @return void
+     */
     private function processDelete(int $id): void
     {
         $result = $this->model->delete($id);
@@ -365,7 +295,7 @@ class FarmDaysController extends AbstractCrudController
     /**
      * Affiche le formulaire permettant de choisir un jour de farm à supprimer.
      */
-    private function showDeleteSelectForm(): void
+    protected function showDeleteSelectForm(): void
     {
         /** @var list<array{id_farm_days: int, days: string}> $all */
         $all = $this->model->getAll();
@@ -391,7 +321,7 @@ class FarmDaysController extends AbstractCrudController
      *
      * @param int $id L’identifiant du jour à supprimer.
      */
-    private function showDeleteConfirmForm(int $id): void
+    protected function showDeleteConfirmForm(int $id): void
     {
         /** @var array{id_farm_days: int, days: string}|null $record */
         $record = $this->model->get($id);
@@ -428,5 +358,16 @@ class FarmDaysController extends AbstractCrudController
         ]));
 
         $this->renderDefault();
+    }
+
+    /**
+     * Récupère les anciennes valeurs saisies par l'utilisateur, ou les valeurs par défaut.
+     *
+     * @param array<string, mixed> $defaults Tableau associatif de valeurs par défaut si aucune ancienne valeur n'est disponible.
+     * @return array<string, mixed> Tableau des valeurs précédemment saisies ou des valeurs par défaut.
+     */
+    public function getOld(array $defaults = []): array
+    {
+        return parent::getOld($defaults);
     }
 }

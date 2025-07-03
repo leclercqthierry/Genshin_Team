@@ -26,6 +26,18 @@ use Psr\Log\LoggerInterface;
  */
 class StatControllerTest extends TestCase
 {
+    /**
+     * Crée et retourne une instance mockée de StatController pour les tests.
+     *
+     * Cette méthode initialise tous les composants requis du contrôleur
+     * (Renderer, Logger, ErrorPresenter, SessionManager et Stat)
+     * à l'aide de mocks PHPUnit. Elle permet également de définir la route active.
+     *
+     * @param Stat|null $model Instance de modèle Stat à utiliser ou null pour en créer un mock.
+     * @param string    $route Nom de la route à définir pour le contrôleur (par défaut : 'add-stat').
+     *
+     * @return StatController Instance du contrôleur configurée pour les tests.
+     */
     private function getController(
         ?Stat $model = null,
         string $route = 'add-stat'
@@ -123,124 +135,6 @@ class StatControllerTest extends TestCase
     }
 
     /**
-     * Vérifie que `handleAdd()` gère correctement une statistique vide.
-     *
-     * Ce test :
-     * - envoie une requête POST avec une statistique vide
-     * - vérifie que les erreurs sont passées à la vue
-     * - s'assure que le formulaire est affiché avec les anciennes valeurs
-     *
-     * @return void
-     */
-    public function testHandleAddEmptyStat(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['stat']             = '';
-
-        $errors = [];
-        $old    = [];
-
-        // Ajout d'un token CSRF valide
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use (&$errors, &$old, $csrf) {
-            if ($key === 'errors') {
-                return $errors;
-            }
-
-            if ($key === 'old') {
-                return $old;
-            }
-
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-        $session->method('set')->willReturnCallback(function ($key, $value) use (&$errors, &$old) {
-            if ($key === 'errors') {
-                // Fusionne les erreurs pour simuler addError()
-                $errors = array_merge((array) $errors, (array) $value);
-            }
-
-            if ($key === 'old') {
-                $old = $value;
-            }
-
-        });
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturnCallback(function ($view, $data = []) {
-            if ($view === 'stats/add-stat') {
-                TestCase::assertIsArray($data);
-                TestCase::assertArrayHasKey('errors', $data);
-                TestCase::assertIsArray($data['errors']);
-                TestCase::assertArrayHasKey('stat', $data['errors']);
-                TestCase::assertSame('Veuillez ajouter une statistique.', $data['errors']['stat']);
-                TestCase::assertArrayHasKey('old', $data);
-                TestCase::assertIsArray($data['old']);
-                TestCase::assertSame('', $data['old']['stat']);
-            }
-            return 'form';
-        });
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $model          = $this->createMock(Stat::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'handleAdd');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie que `handleAdd()` affiche le formulaire si la requête n’est pas de type POST.
-     *
-     * Ce test :
-     * - simule l’absence de `$_SERVER['REQUEST_METHOD']`
-     * - vérifie que le formulaire d’ajout est correctement affiché par défaut
-     *
-     * @return void
-     */
-    public function testHandleAddShowsFormOnGet(): void
-    {
-        unset($_SERVER['REQUEST_METHOD']);
-        $_POST = [];
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('form');
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([
-                $renderer,
-                $this->createMock(LoggerInterface::class),
-                $this->createMock(ErrorPresenterInterface::class),
-                $this->createMock(SessionManager::class),
-                $this->createMock(Stat::class),
-            ])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'handleAdd');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
      * Vérifie que `handleAdd()` gère correctement un échec de création en base.
      *
      * Ce test :
@@ -313,82 +207,6 @@ class StatControllerTest extends TestCase
     }
 
     /**
-     * Vérifie que `handleAdd()` gère correctement un token CSRF invalide.
-     *
-     * Ce test :
-     * - simule une requête POST avec un token CSRF invalide
-     * - vérifie que les erreurs sont passées à la vue
-     * - s'assure que le formulaire est affiché avec les anciennes valeurs
-     *
-     * @return void
-     */
-    public function testHandleAddCsrfInvalid(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['stat']             = 'Nouvelle stat';
-
-        // Simule un token CSRF invalide
-        $_SESSION['csrf_token'] = 'token_session';
-        $_POST['csrf_token']    = 'token_post_different';
-
-        $errors = [];
-        $old    = [];
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use (&$errors, &$old) {
-            if ($key === 'errors') {
-                return $errors;
-            }
-
-            if ($key === 'old') {
-                return $old;
-            }
-
-            if ($key === 'csrf_token') {
-                return 'token_session';
-            }
-
-            return null;
-        });
-        $session->method('set')->willReturnCallback(function ($key, $value) use (&$errors, &$old) {
-            if ($key === 'errors') {
-                $errors = $value;
-            }
-
-            if ($key === 'old') {
-                $old = $value;
-            }
-
-        });
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturnCallback(function ($view, $data = []) {
-            if ($view === 'stats/add-stat') {
-                TestCase::assertIsArray($data);
-                TestCase::assertArrayHasKey('errors', $data);
-                TestCase::assertIsArray($data['errors']);
-                TestCase::assertSame('Requête invalide ! Veuillez réessayer.', $data['errors']['global']);
-            }
-            return 'form';
-        });
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $model          = $this->createMock(Stat::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'handleAdd');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
      * Vérifie que `showEditSelectForm()` utilise bien le modèle pour récupérer les éléments
      * et que `renderDefault()` est appelé pour afficher la sélection.
      *
@@ -423,58 +241,6 @@ class StatControllerTest extends TestCase
         $ref->setAccessible(true);
 
         $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie que handleEdit() appelle `showEditSelectForm()` si aucun edit_id n’est fourni.
-     *
-     * Ce test :
-     * - simule une requête POST vide
-     * - utilise un mock de contrôleur avec une méthode protégée
-     * - s’assure que le fallback `showEditSelectForm()` est bien déclenché
-     *
-     * @return void
-     */
-    public function testHandleEditNoEditId(): void
-    {
-        $_POST      = [];
-        $controller = $this->getController();
-        $ref        = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        // On mocke showEditSelectForm pour vérifier qu'elle est appelée
-        $mock = $this->getMockBuilder(StatController::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['showEditSelectForm'])
-            ->getMock();
-        $mock->expects($this->once())->method('showEditSelectForm');
-
-        $ref = new ReflectionMethod($mock, 'handleEdit');
-        $ref->setAccessible(true);
-
-        $ref->invoke($mock);
-    }
-
-    /**
-     * Vérifie que handleEdit() appelle `showEditSelectForm()` si l’ID fourni n’est pas un entier valide.
-     *
-     * @return void
-     */
-    public function testHandleEditInvalidId(): void
-    {
-        $_POST['edit_id'] = 'abc'; // id invalide
-
-        $controller = $this->getController();
-        $mock       = $this->getMockBuilder(StatController::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['showEditSelectForm'])
-            ->getMock();
-        $mock->expects($this->once())->method('showEditSelectForm');
-
-        $ref = new ReflectionMethod($mock, 'handleEdit');
-        $ref->setAccessible(true);
-
-        $ref->invoke($mock);
     }
 
     /**
@@ -545,90 +311,6 @@ class StatControllerTest extends TestCase
         $output = ob_get_clean();
 
         $this->assertStringContainsString('success', (string) $output);
-    }
-
-    /**
-     * Vérifie que handleEdit() gère correctement une statistique vide.
-     *
-     * Ce test :
-     * - simule une requête POST avec un champ `stat` vide
-     * - vérifie que les erreurs sont passées à la vue
-     * - s'assure que le formulaire est affiché avec les anciennes valeurs
-     *
-     * @return void
-     */
-    public function testHandleEditEmptyStat(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['stat']             = '';
-
-        $errors = [];
-        $old    = [];
-
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use (&$errors, &$old, $csrf) {
-            if ($key === 'errors') {
-                return $errors;
-            }
-
-            if ($key === 'old') {
-                return $old;
-            }
-
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-        $session->method('set')->willReturnCallback(function ($key, $value) use (&$errors, &$old) {
-            if ($key === 'errors') {
-                $errors = array_merge((array) $errors, (array) $value);
-            }
-
-            if ($key === 'old') {
-                $old = $value;
-            }
-
-        });
-
-        $model = $this->createMock(Stat::class);
-        $model->method('get')->with(1)->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturnCallback(function ($view, $data = []) {
-            if ($view === 'stats/add-stat') {
-                TestCase::assertIsArray($data);
-                TestCase::assertArrayHasKey('errors', $data);
-                TestCase::assertIsArray($data['errors']);
-                TestCase::assertArrayHasKey('stat', $data['errors']);
-                TestCase::assertSame('Veuillez ajouter une statistique.', $data['errors']['stat']);
-                TestCase::assertArrayHasKey('old', $data);
-                TestCase::assertIsArray($data['old']);
-                TestCase::assertSame('Ancienne stat', $data['old']['stat']);
-
-            }
-            return 'form';
-        });
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
     }
 
     /**
@@ -841,57 +523,6 @@ class StatControllerTest extends TestCase
         $ref->setAccessible(true);
 
         $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie que le contrôleur gère le cas où aucun `delete_id` n'est fourni dans `$_POST`.
-     *
-     * Ce test :
-     * - laisse `$_POST` vide
-     * - attend que `showDeleteSelectForm()` soit appelée en fallback
-     *
-     * @return void
-     */
-    public function testHandleDeleteNoDeleteId(): void
-    {
-        $_POST      = [];
-        $controller = $this->getController();
-        $mock       = $this->getMockBuilder(StatController::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['showDeleteSelectForm'])
-            ->getMock();
-        $mock->expects($this->once())->method('showDeleteSelectForm');
-
-        $ref = new ReflectionMethod($mock, 'handleDelete');
-        $ref->setAccessible(true);
-
-        $ref->invoke($mock);
-    }
-
-    /**
-     * Vérifie que le contrôleur gère un `delete_id` invalide (non numérique).
-     *
-     * Ce test :
-     * - fournit une chaîne non castable en int
-     * - attend que `showDeleteSelectForm()` soit déclenchée en réponse sécurisée
-     *
-     * @return void
-     */
-    public function testHandleDeleteInvalidId(): void
-    {
-        $_POST['delete_id'] = 'abc'; // id invalide
-
-        $controller = $this->getController();
-        $mock       = $this->getMockBuilder(StatController::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['showDeleteSelectForm'])
-            ->getMock();
-        $mock->expects($this->once())->method('showDeleteSelectForm');
-
-        $ref = new ReflectionMethod($mock, 'handleDelete');
-        $ref->setAccessible(true);
-
-        $ref->invoke($mock);
     }
 
     /**

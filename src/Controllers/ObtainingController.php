@@ -4,23 +4,23 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Connexion\Database;
-use GenshinTeam\Models\Stat;
+use GenshinTeam\Models\Obtaining;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Contrôleur chargé de la gestion des statistiques :
+ * Contrôleur chargé de la gestion des moyens d'obtention :
  * - ajout
  * - édition
  * - suppression
  * - affichage
  *
- * Utilise un modèle Stats pour interagir avec la BDD.
+ * Utilise un modèle Obtaining pour interagir avec la BDD.
  */
 
-class StatController extends AbstractCrudController
+class ObtainingController extends AbstractCrudController
 {
     /**
      * Constructeur principal du contrôleur.
@@ -29,64 +29,64 @@ class StatController extends AbstractCrudController
      * @param LoggerInterface $logger Logger PSR-3 pour journalisation.
      * @param ErrorPresenterInterface $errorPresenter Présentateur d'erreurs.
      * @param SessionManager $session Gestionnaire de session pour l’état utilisateur.
-     * @param Stat|null $statModel (optionnel) instance du modèle injectée pour testabilité.
+     * @param Obtaining|null $obtainingModel (optionnel) instance du modèle injectée pour testabilité.
      */
     public function __construct(
         Renderer $renderer,
         LoggerInterface $logger,
         ErrorPresenterInterface $errorPresenter,
         SessionManager $session,
-        ?Stat $statModel = null
+        ?Obtaining $obtainingModel = null
     ) {
         parent::__construct(
             $renderer,
             $logger,
             $errorPresenter,
             $session,
-            $statModel ?: new Stat(Database::getInstance(), $logger)
+            $obtainingModel ?: new Obtaining(Database::getInstance(), $logger)
         );
 
     }
 
     /**
-     * Retourne le nom de la route pour l'ajout d'une statistique.
+     * Retourne le nom de la route pour l'ajout d'un moyen d'obtention.
      *
      * @return string La route d'ajout.
      */
     protected function getAddRoute(): string
     {
-        return 'add-stat';
+        return 'add-obtaining';
     }
 
     /**
-     * Retourne le nom de la route pour la modification d'une statistique.
+     * Retourne le nom de la route pour la modification d'un moyen d'obtention.
      *
      * @return string La route de modification.
      */
     protected function getEditRoute(): string
     {
-        return 'edit-stat';
+        return 'edit-obtaining';
     }
 
     /**
-     * Retourne le nom de la route pour la suppression d'une statistique.
+     * Retourne le nom de la route pour la suppression d'un moyen d'obtention.
      *
      * @return string La route de suppression.
      */
     protected function getDeleteRoute(): string
     {
-        return 'delete-stat';
+        return 'delete-obtaining';
     }
 
     // --- AJOUT ---
 
     /**
-     * Gère l'ajout d'une statistique via POST.
+     * Gère l'ajout d'un moyen d'obtention via POST.
      */
     protected function handleAdd(): void
     {
         $this->handleCrudAdd(
-            'stat',
+            'obtaining',
             fn(string $v) => trim($v) === '',
             fn(string $v) => $this->processAdd($v),
             fn()          => $this->showAddForm()
@@ -94,26 +94,26 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Traite l'ajout de la statistique en base de données.
+     * Traite l'ajout du moyen d'obtention en base de données.
      *
      * Si l'ajout réussit, affiche un message de succès.
      * Sinon, affiche une erreur et restitue le formulaire avec les valeurs précédentes.
      *
-     * @param string $stat La statistique à ajouter
+     * @param string $obtaining Le moyen d'obtention à ajouter
      *
      * @return void
      */
-    private function processAdd(string $stat): void
+    private function processAdd(string $obtaining): void
     {
-        $result = $this->model->add($stat);
+        $result = $this->model->add($obtaining);
 
         if ($result) {
             $this->addData('title', 'Succès');
-            $this->addData('content', '<div role="alert">Statistique ajoutée !</div>');
+            $this->addData('content', '<div role="alert">Moyen d\'obtention ajouté !</div>');
             $this->renderDefault();
         } else {
             $this->addError('global', 'Erreur lors de l\'ajout.');
-            $this->setOld(['stat' => $stat]);
+            $this->setOld(['obtaining' => $obtaining]);
             $this->showAddForm();
         }
     }
@@ -123,8 +123,8 @@ class StatController extends AbstractCrudController
      */
     protected function showAddForm(): void
     {
-        $this->addData('title', 'Ajouter une statistique');
-        $this->addData('content', $this->renderer->render('stats/add-stat', [
+        $this->addData('title', 'Ajouter un moyen d\'obtention');
+        $this->addData('content', $this->renderer->render('obtaining/add-obtaining', [
             'errors' => $this->getErrors(),
             'old'    => $this->getOld(),
             'mode'   => 'add',
@@ -136,21 +136,15 @@ class StatController extends AbstractCrudController
     // --- EDITION ---
 
     /**
-     * Gère le processus de modification d'une statistique.
+     * Gère la modification d'un moyen d'obtention via POST.
      *
-     * Cette méthode vérifie d'abord si un identifiant de statistique a été soumis
-     * via POST. Si ce n'est pas le cas, elle affiche le formulaire de sélection.
-     * Ensuite, elle tente de récupérer et valider l'identifiant.
-     * Si une statistique est soumise via POST et est non vide, elle est traitée ;
-     * sinon, le formulaire de modification est affiché ou une gestion spécifique
-     * est déclenchée pour une entrée vide.
-     *
-     * @return void
+     * Vérifie si l'identifiant est valide, si le moyen d'obtention n'est pas vide,
+     * puis traite la modification ou affiche le formulaire de sélection.
      */
     protected function handleEdit(): void
     {
         $this->handleCrudEdit(
-            'stat',
+            'obtaining',
             fn(string $v)          => trim($v) === '',
             fn(int $id, string $v) => $this->processEdit($id, $v),
             fn(int $id)            => $this->showEditForm($id),
@@ -160,7 +154,7 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Récupère l'identifiant de la statistique à modifier depuis le formulaire POST.
+     * Récupère l'identifiant du moyen d'obtention à modifier depuis le formulaire POST.
      *
      * Utilise FILTER_VALIDATE_INT pour s'assurer que l'identifiant est un entier valide.
      *
@@ -173,35 +167,35 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Traite la mise à jour de la statistique spécifiée.
+     * Traite la mise à jour du moyen d'obtention spécifié.
      *
-     * Tente de modifier la statistique avec les données reçues. Affiche un message
+     * Tente de modifier le moyen d'obtention avec les données reçues. Affiche un message
      * de succès ou gère l’échec en affichant les erreurs et en rechargeant le formulaire.
      *
-     * @param int    $id   L'identifiant de la statistique.
-     * @param string $stat La nouvelle valeur de la statistique.
+     * @param int    $id   L'identifiant du moyen d'obtention.
+     * @param string $obtaining La nouvelle valeur du moyen d'obtention.
      *
      * @return void
      */
-    private function processEdit(int $id, string $stat): void
+    private function processEdit(int $id, string $obtaining): void
     {
-        $result = $this->model->update($id, $stat);
+        $result = $this->model->update($id, $obtaining);
 
         if ($result) {
             $this->addData('title', 'Succès');
-            $this->addData('content', '<div role="alert">Statistique modifiée !</div>');
+            $this->addData('content', '<div role="alert">Moyen d\'obtention modifié !</div>');
             $this->renderDefault();
         } else {
             $this->addError('global', 'Erreur lors de la modification.');
-            $this->setOld(['stat' => $stat]);
+            $this->setOld(['obtaining' => $obtaining]);
             $this->showEditForm($id);
         }
     }
 
     /**
-     * Affiche un formulaire permettant de sélectionner la statistique à modifier.
+     * Affiche un formulaire permettant de sélectionner le moyen d'obtention à modifier.
      *
-     * Récupère toutes les statistiques disponibles via le modèle,
+     * Récupère tous les moyens d'obtention disponibles via le modèle,
      * puis prépare et affiche un formulaire de sélection à l’aide du moteur de rendu.
      *
      * @return void
@@ -210,47 +204,47 @@ class StatController extends AbstractCrudController
     {
         $all = $this->model->getAll();
 
-        $this->addData('title', 'Choisir la statistique à éditer');
+        $this->addData('title', 'Choisir le moyen d\'obtention à éditer');
         $this->addData('content', $this->renderer->render('partials/select-item', [
-            'action'      => 'edit-stat',
+            'action'      => 'edit-obtaining',
             'fieldName'   => 'edit_id',
             'buttonLabel' => 'Éditer',
-            'title'       => 'Choisir la statistique à éditer',
-            'items'       => $all,      // <-- nom générique
-            'nameField'   => 'name',    // <-- champ à afficher
-            'idField'     => 'id_stat', // <-- champ ID
+            'title'       => 'Choisir le moyen d\'obtention à éditer',
+            'items'       => $all,           // <-- nom générique
+            'nameField'   => 'name',         // <-- champ à afficher
+            'idField'     => 'id_obtaining', // <-- champ ID
             'errors'      => $this->getErrors(),
         ]));
         $this->renderDefault();
     }
 
     /**
-     * Affiche le formulaire de modification pour une statistique donnée.
+     * Affiche le formulaire de modification pour un moyen d'obtention donné.
      *
      * Si l'identifiant est invalide (aucun enregistrement trouvé), un message
      * d'erreur est ajouté et le formulaire de sélection est affiché à nouveau.
      * Sinon, les données existantes sont préremplies dans le formulaire.
      *
-     * @param int $id L’identifiant de la statistique à éditer.
+     * @param int $id L’identifiant du moyen d'obtention à éditer.
      *
      * @return void
      */
-    private function showEditForm(int $id): void
+    protected function showEditForm(int $id): void
     {
         $record = $this->model->get($id);
 
         if (! $record) {
-            $this->addError('global', 'Statistique introuvable.');
+            $this->addError('global', 'Moyen d\'obtention introuvable.');
             $this->showEditSelectForm();
             return;
         }
 
         $old = [
-            'stat' => $record['name'] ?? '',
+            'obtaining' => $record['name'] ?? '',
         ];
 
-        $this->addData('title', 'Éditer la statistique');
-        $this->addData('content', $this->renderer->render('stats/add-stat', [
+        $this->addData('title', 'Éditer le moyen d\'obtention');
+        $this->addData('content', $this->renderer->render('obtaining/add-obtaining', [
             'errors' => $this->getErrors(),
             'old'    => $old,
             'mode'   => 'edit',
@@ -263,7 +257,7 @@ class StatController extends AbstractCrudController
     // --- SUPPRESSION ---
 
     /**
-     * Gère la suppression d'une statistique.
+     * Gère la suppression d'un moyen d'obtention.
      *
      * Si l'ID n'est pas soumis, affiche un formulaire de sélection.
      * Si l'ID est invalide, affiche une erreur.
@@ -282,7 +276,7 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Récupère l'identifiant de la statistique à supprimer depuis $_POST.
+     * Récupère l'identifiant du moyen d'obtention à supprimer depuis $_POST.
      *
      * @return int|false L'identifiant valide ou false s'il est invalide.
      */
@@ -293,11 +287,11 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Supprime une statistique selon l'identifiant donné.
+     * Supprime un moyen d'obtention selon l'identifiant donné.
      *
      * Affiche un message de succès ou une erreur selon le résultat.
      *
-     * @param int $id L'identifiant de la statistique à supprimer.
+     * @param int $id L'identifiant du moyen d'obtention à supprimer.
      *
      * @return void
      */
@@ -307,7 +301,7 @@ class StatController extends AbstractCrudController
 
         if ($result) {
             $this->addData('title', 'Succès');
-            $this->addData('content', '<div role="alert">Statistique supprimée !</div>');
+            $this->addData('content', '<div role="alert">Moyen d\'obtention supprimé !</div>');
             $this->renderDefault();
         } else {
             $this->addError('global', 'Erreur lors de la suppression.');
@@ -316,9 +310,9 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Affiche un formulaire de sélection pour choisir une statistique à supprimer.
+     * Affiche un formulaire de sélection pour choisir un moyen d'obtention à supprimer.
      *
-     * Récupère toutes les statistiques disponibles et utilise le moteur de rendu
+     * Récupère tous les moyens d'obtention disponibles et utilise le moteur de rendu
      * pour afficher un formulaire HTML avec liste déroulante.
      *
      * @return void
@@ -327,27 +321,27 @@ class StatController extends AbstractCrudController
     {
         $all = $this->model->getAll();
 
-        $this->addData('title', 'Choisir la statistique à supprimer');
+        $this->addData('title', 'Choisir le moyen d\'obtention à supprimer');
         $this->addData('content', $this->renderer->render('partials/select-item', [
-            'action'      => 'delete-stat',
+            'action'      => 'delete-obtaining',
             'fieldName'   => 'delete_id',
             'buttonLabel' => 'Supprimer',
-            'title'       => 'Choisir la statistique à supprimer',
-            'items'       => $all,      // <-- nom générique
-            'nameField'   => 'name',    // <-- champ à afficher
-            'idField'     => 'id_stat', // <-- champ ID
+            'title'       => 'Choisir le moyen d\'obtention à supprimer',
+            'items'       => $all,           // <-- nom générique
+            'nameField'   => 'name',         // <-- champ à afficher
+            'idField'     => 'id_obtaining', // <-- champ ID
             'errors'      => $this->getErrors(),
         ]));
         $this->renderDefault();
     }
 
     /**
-     * Affiche le formulaire de confirmation de suppression pour une statistique.
+     * Affiche le formulaire de confirmation de suppression pour un moyen d'obtention.
      *
      * Si l’enregistrement est introuvable, affiche un message d’erreur
      * et renvoie vers le formulaire de sélection.
      *
-     * @param int $id L’identifiant de la statistique à confirmer pour suppression.
+     * @param int $id L’identifiant du moyen d'obtention à confirmer pour suppression.
      *
      * @return void
      */
@@ -356,16 +350,16 @@ class StatController extends AbstractCrudController
         $record = $this->model->get($id);
 
         if (! $record) {
-            $this->addError('global', 'Statistique introuvable.');
+            $this->addError('global', 'Moyen d\'obtention introuvable.');
             $this->showDeleteSelectForm();
             return;
         }
 
         $this->addData('title', 'Confirmer la suppression');
-        $this->addData('content', $this->renderer->render('stats/delete-stat-confirm', [
-            'stat'   => $record,
-            'id'     => $id,
-            'errors' => $this->getErrors(),
+        $this->addData('content', $this->renderer->render('obtaining/delete-obtaining-confirm', [
+            'obtaining' => $record,
+            'id'        => $id,
+            'errors'    => $this->getErrors(),
         ]));
         $this->renderDefault();
     }
@@ -373,9 +367,9 @@ class StatController extends AbstractCrudController
     // --- LISTE ---
 
     /**
-     * Affiche la liste complète des statistiques enregistrées.
+     * Affiche la liste complète des moyens d'obtention enregistrés.
      *
-     * Récupère toutes les statistiques via le modèle, prépare les données
+     * Récupère tous les moyens d'obtention via le modèle, prépare les données
      * pour le moteur de rendu, puis affiche la vue correspondante.
      *
      * @return void
@@ -384,9 +378,9 @@ class StatController extends AbstractCrudController
     {
         $all = $this->model->getAll();
 
-        $this->addData('title', 'Liste des statistiques');
-        $this->addData('content', $this->renderer->render('stats/stats-list', [
-            'stats' => $all,
+        $this->addData('title', 'Liste des moyens d\'obtention');
+        $this->addData('content', $this->renderer->render('obtaining/obtaining-list', [
+            'obtainings' => $all,
         ]));
         $this->renderDefault();
     }

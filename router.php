@@ -61,6 +61,10 @@ $router->addRoute('add-stat', 'StatController');
 $router->addRoute('edit-stat', 'StatController');
 $router->addRoute('delete-stat', 'StatController');
 $router->addRoute('stats-list', 'StatController');
+$router->addRoute('add-obtaining', 'ObtainingController');
+$router->addRoute('edit-obtaining', 'ObtainingController');
+$router->addRoute('delete-obtaining', 'ObtainingController');
+$router->addRoute('obtaining-list', 'ObtainingController');
 
 // Gestion globale des erreurs
 try {

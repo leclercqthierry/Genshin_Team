@@ -216,4 +216,128 @@ abstract class AbstractController
     {
         // $this->currentRoute = $route;
     }
+
+    /**
+     * Gère l'ajout d'un champ dans un formulaire CRUD.
+     *
+     * Cette méthode est utilisée pour traiter les requêtes POST lors de l'ajout d'un champ.
+     * Elle vérifie si le champ est vide, valide le token CSRF, et appelle les fonctions de traitement
+     * appropriées pour ajouter le champ ou afficher le formulaire.
+     *
+     * @param string   $fieldName  Le nom du champ à ajouter.
+     * @param callable $isEmpty    Fonction qui vérifie si le champ est vide.
+     * @param callable $processAdd Fonction qui traite l'ajout du champ.
+     * @param callable $showForm   Fonction qui affiche le formulaire d'ajout.
+     *
+     * @return void
+     */
+    protected function handleCrudAdd(string $fieldName, callable $isEmpty, callable $processAdd, callable $showForm)
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $showForm();
+                return;
+            }
+            $value = $_POST[$fieldName] ?? '';
+            if ($isEmpty($value)) {
+                $this->addError($fieldName, "Veuillez remplir ce champ.");
+                $this->setOld([$fieldName => $value]);
+                $showForm();
+                return;
+            }
+            $processAdd($value);
+        } else {
+            $showForm();
+        }
+    }
+
+    /**
+     * Gère le processus de modification d'un champ dans un formulaire CRUD.
+     *
+     * @param string   $fieldName  Le nom du champ à modifier.
+     * @param callable $isEmpty    Fonction qui vérifie si le champ est vide.
+     * @param callable $processEdit Fonction qui traite la modification du champ.
+     * @param callable $showEditForm Fonction qui affiche le formulaire de modification.
+     *
+     * @return void
+     */
+    protected function handleCrudEdit(
+        string $fieldName,
+        callable $isEmpty,
+        callable $processEdit,
+        callable $showEditForm,
+        callable $showEditSelectForm,
+        callable $getEditId
+    ): void {
+        if (! isset($_POST['edit_id'])) {
+            $showEditSelectForm();
+            return;
+        }
+
+        $id = $getEditId();
+        if ($id === false) {
+            $this->addError('global', 'ID invalide.');
+            $showEditSelectForm();
+            return;
+        }
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST[$fieldName])) {
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $showEditForm($id);
+                return;
+            }
+            $value = $_POST[$fieldName];
+            if ($isEmpty($value)) {
+                $this->addError($fieldName, "Veuillez remplir ce champ.");
+                $this->setOld([$fieldName => $value]);
+                $showEditForm($id);
+                return;
+            }
+            $processEdit($id, $value);
+        } else {
+            $showEditForm($id);
+        }
+    }
+
+    /**
+     * Gère la suppression d'un champ dans un formulaire CRUD.
+     *
+     * @param callable $getDeleteId Fonction qui récupère l'ID à supprimer.
+     * @param callable $processDelete Fonction qui traite la suppression.
+     * @param callable $showDeleteSelectForm Fonction qui affiche le formulaire de sélection.
+     * @param callable $showDeleteConfirmForm Fonction qui affiche le formulaire de confirmation.
+     *
+     * @return void
+     */
+    protected function handleCrudDelete(
+        callable $getDeleteId,
+        callable $processDelete,
+        callable $showDeleteSelectForm,
+        callable $showDeleteConfirmForm
+    ): void {
+        if (! isset($_POST['delete_id'])) {
+            $showDeleteSelectForm();
+            return;
+        }
+
+        $id = $getDeleteId();
+        if ($id === false) {
+            $this->addError('global', 'ID invalide.');
+            $showDeleteSelectForm();
+            return;
+        }
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['confirm_delete'])) {
+            if (! $this->isCsrfTokenValid()) {
+                $this->addError('global', "Requête invalide ! Veuillez réessayer.");
+                $showDeleteSelectForm();
+                return;
+            }
+            $processDelete($id);
+        } else {
+            $showDeleteConfirmForm($id);
+        }
+    }
 }
