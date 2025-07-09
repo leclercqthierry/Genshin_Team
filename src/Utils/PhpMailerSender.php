@@ -41,7 +41,7 @@ class PhpMailerSender implements MailSenderInterface
         $mail = $this->mailer ?? new PHPMailer(true); // utilise le mock s’il est fourni
 
         $link    = BASE_URL . "/reset-password?token=" . urlencode($token);
-        $message = "...";
+        $message = "Bonjour,\n\nCliquez sur le lien suivant pour réinitialiser votre mot de passe :\n" . BASE_URL . "/reset-password?token=$token\n\nCe lien est valable 30 minutes.";
 
         $mail->isSMTP();
         $mail->Host     = '192.168.0.24';

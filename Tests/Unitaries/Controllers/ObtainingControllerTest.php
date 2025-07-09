@@ -310,11 +310,11 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
                 throw new \RuntimeException('Exception simulée depuis handleCrudAdd');
             }
 
-            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c, callable $d): void
+            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c): void
             {
                 throw new \RuntimeException('Exception simulée depuis handleCrudEdit');
             }
-            protected function handleCrudDelete(callable $a, callable $b, callable $c, callable $d): void
+            protected function handleCrudDelete(callable $b, callable $c, callable $d): void
             {
                 throw new \RuntimeException('Exception simulée depuis handleCrudDelete');
             }
@@ -482,10 +482,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
                 new SessionManager(),
                 $model,
             ])
-            ->onlyMethods(['getDeleteId'])
             ->getMock();
-
-        $controller->method('getDeleteId')->willReturn(1);
 
         $ref = new \ReflectionMethod($controller, 'handleDelete');
         $ref->setAccessible(true);
@@ -828,55 +825,6 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
         $controller = $this->buildControllerForShowList($model, null, expectHandleException: $exception);
 
         $this->invokeProtectedMethod($controller, 'showList');
-    }
-
-    /**
-     * Teste le comportement de getDeleteId() selon l'entrée donnée.
-     *
-     * @param mixed $input Valeur simulée de $_POST['delete_id']
-     * @param int|false $expected Résultat attendu après filtrage
-     */
-    private function assertDeleteId(mixed $input, int | false $expected): void
-    {
-        if ($input === null) {
-            unset($_POST['delete_id']);
-        } else {
-            $_POST['delete_id'] = $input;
-        }
-
-        $controller = $this->getController();
-        $ref        = new \ReflectionMethod($controller, 'getDeleteId');
-        $ref->setAccessible(true);
-
-        $result = $ref->invoke($controller);
-        $this->assertSame($expected, $result);
-    }
-
-    /**
-     * Vérifie que getDeleteId retourne correctement un entier valide
-     * lorsque la valeur d'entrée est une chaîne numérique.
-     *
-     * Ce test :
-     * - Simule une valeur "delete_id" sous forme de chaîne contenant "42"
-     * - Vérifie que la méthode renvoie l'entier 42
-     */
-    public function testGetDeleteIdWithValidInteger(): void
-    {
-        $this->assertDeleteId('42', 42);
-    }
-
-    /**
-     * Vérifie que getDeleteId retourne false lorsque la valeur d'entrée est invalide ou absente.
-     *
-     * Ce test :
-     * - Passe successivement des valeurs non valides : chaîne non numérique, vide, null
-     * - Vérifie que la méthode échoue à produire un identifiant valide
-     */
-    public function testGetDeleteIdWithInvalidOrMissingValue(): void
-    {
-        $this->assertDeleteId('invalid', false);
-        $this->assertDeleteId('', false);
-        $this->assertDeleteId(null, false); // simulate absence
     }
 
     /**

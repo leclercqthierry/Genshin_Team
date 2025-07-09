@@ -157,13 +157,13 @@ class LoginController extends AbstractController
 
         // Trop de tentatives ? On bloque
         if ($this->hasTooManyAttempts()) {
-            $this->handleTooManyAttempts($nickname);
+            $this->handleFormFailure("Trop de tentatives échouées, veuillez réessayer plus tard.", $nickname);
             return;
         }
 
         // Champs requis vides
         if ($this->hasEmptyFields($nickname, $password)) {
-            $this->handleEmptyFields($nickname);
+            $this->handleFormFailure("Veuillez remplir tous les champs.", $nickname);
             return;
         }
 
@@ -237,21 +237,23 @@ class LoginController extends AbstractController
     }
 
     /**
-     * Gère le cas où trop de tentatives ont été effectuées.
+     * Gère les erreurs liées au formulaire de connexion en affichant
+     * un message d'erreur, en conservant les données saisies, et en
+     * réaffichant le formulaire.
+     *
+     * Cette méthode peut être utilisée dans divers cas d'échec :
+     * - Trop de tentatives infructueuses
+     * - Champs manquants
+     * - Erreur de validation personnalisée
+     *
+     * @param string $message  Le message d'erreur à afficher.
+     * @param string $nickname Le pseudo saisi par l'utilisateur.
+     *
+     * @return void
      */
-    private function handleTooManyAttempts(string $nickname): void
+    private function handleFormFailure(string $message, string $nickname): void
     {
-        $this->addError('global', "Trop de tentatives échouées, veuillez réessayer plus tard.");
-        $this->addData('old', $this->getOld(['nickname' => $nickname]));
-        $this->showLoginForm();
-    }
-
-    /**
-     * Gère le cas où des champs sont vides.
-     */
-    private function handleEmptyFields(string $nickname): void
-    {
-        $this->addError('global', "Veuillez remplir tous les champs.");
+        $this->addError('global', $message);
         $this->addData('old', $this->getOld(['nickname' => $nickname]));
         $this->showLoginForm();
     }
@@ -266,9 +268,7 @@ class LoginController extends AbstractController
         /** @var int $attempts */
         $this->session->set('login_attempts', $attempts + 1);
 
-        $this->addError('global', "Pseudo ou mot de passe incorrect.");
-        $this->addData('old', $this->getOld(['nickname' => $nickname]));
-        $this->showLoginForm();
+        $this->handleFormFailure("Pseudo ou mot de passe incorrect.", $nickname);
     }
 
     /**

@@ -228,24 +228,10 @@ class ObtainingController extends AbstractCrudController
                 },
                 fn(int $id) => $this->showEditForm($id),
                 fn()        => $this->showEditSelectForm(),
-                fn()        => $this->getEditId()
             );
         } catch (\Throwable $e) {
             $this->handleException($e);
         }
-    }
-
-    /**
-     * Récupère l'identifiant du moyen d'obtention à modifier depuis le formulaire POST.
-     *
-     * Utilise FILTER_VALIDATE_INT pour s'assurer que l'identifiant est un entier valide.
-     *
-     * @return int|false L'identifiant validé ou false si invalide.
-     */
-    private function getEditId(): int | false
-    {
-        $rawId = $_POST['edit_id'];
-        return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
     /**
@@ -355,7 +341,6 @@ class ObtainingController extends AbstractCrudController
     {
         try {
             $this->handleCrudDelete(
-                fn()        => $this->getDeleteId(),
                 fn(int $id) => $this->processDelete($id),
                 fn()        => $this->showDeleteSelectForm(),
                 fn(int $id) => $this->showDeleteConfirmForm($id)
@@ -363,17 +348,6 @@ class ObtainingController extends AbstractCrudController
         } catch (\Throwable $e) {
             $this->handleException($e);
         }
-    }
-
-    /**
-     * Récupère l'identifiant du moyen d'obtention à supprimer depuis $_POST.
-     *
-     * @return int|false L'identifiant valide ou false s'il est invalide.
-     */
-    protected function getDeleteId(): int | false
-    {
-        $rawId = $_POST['delete_id'] ?? null;
-        return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
     /**

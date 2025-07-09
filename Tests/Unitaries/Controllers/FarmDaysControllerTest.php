@@ -218,7 +218,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
                 $this->handleEdit();
             }
 
-            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c, callable $d): void
+            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c): void
             {
                 throw new \RuntimeException('Erreur simulée directe dans handleCrudEdit');
             }
@@ -351,7 +351,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
                 $this->handleDelete();
             }
 
-            protected function handleCrudDelete(callable $a, callable $b, callable $c, callable $d): void
+            protected function handleCrudDelete(callable $b, callable $c, callable $d): void
             {
                 throw new \RuntimeException('Erreur simulée directe dans handleCrudDelete');
             }

@@ -137,15 +137,16 @@ abstract class AbstractCrudController extends AbstractController
         string $fieldName,
         callable $processEdit,
         callable $showEditForm,
-        callable $showEditSelectForm,
-        callable $getEditId
+        callable $showEditSelectForm
     ): void {
         if (! isset($_POST['edit_id'])) {
             $showEditSelectForm();
             return;
         }
 
-        $id = $getEditId();
+        /** @var int|false $id */
+        $id = filter_var($_POST['edit_id'], FILTER_VALIDATE_INT);
+
         if ($id === false) {
             $this->addError('global', 'ID invalide.');
             $showEditSelectForm();
@@ -153,7 +154,6 @@ abstract class AbstractCrudController extends AbstractController
         }
 
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST[$fieldName])) {
-            /** @var int|null $id */
             if (! $this->verifyCsrfOrShowError($showEditForm, $id)) {
                 return;
             }
@@ -173,7 +173,6 @@ abstract class AbstractCrudController extends AbstractController
     /**
      * Gère la suppression d'un champ dans un formulaire CRUD.
      *
-     * @param callable $getDeleteId Fonction qui récupère l'ID à supprimer.
      * @param callable $processDelete Fonction qui traite la suppression.
      * @param callable $showDeleteSelectForm Fonction qui affiche le formulaire de sélection.
      * @param callable $showDeleteConfirmForm Fonction qui affiche le formulaire de confirmation.
@@ -181,7 +180,6 @@ abstract class AbstractCrudController extends AbstractController
      * @return void
      */
     protected function handleCrudDelete(
-        callable $getDeleteId,
         callable $processDelete,
         callable $showDeleteSelectForm,
         callable $showDeleteConfirmForm
@@ -191,7 +189,9 @@ abstract class AbstractCrudController extends AbstractController
             return;
         }
 
-        $id = $getDeleteId();
+        /** @var int|false $id */
+        $id = filter_var($_POST['delete_id'], FILTER_VALIDATE_INT);
+
         if ($id === false) {
             $this->addError('global', 'ID invalide.');
             $showDeleteSelectForm();

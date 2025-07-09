@@ -126,12 +126,14 @@ class ForgotPasswordController extends AbstractController
         $validator = new Validator();
 
         $validator->validateRequired('email', $email, "L'adresse email est requise.");
-        if (! $this->handleValidationIfError('email', $email, $validator, 'email', fn() => $this->showForm())) {
+        if ($validator->hasErrors()) {
+            $this->showValidationError('email', $email, $validator, 'email', fn() => $this->showForm());
             return;
         }
 
         $validator->validateEmail('email', $email, "Veuillez saisir une adresse email valide.");
-        if (! $this->handleValidationIfError('email', $email, $validator, 'email', fn() => $this->showForm())) {
+        if ($validator->hasErrors()) {
+            $this->showValidationError('email', $email, $validator, 'email', fn() => $this->showForm());
             return;
         }
 
@@ -146,4 +148,5 @@ class ForgotPasswordController extends AbstractController
         $this->addData('success', "Si votre adresse est reconnue, un lien de réinitialisation vous a été envoyé.");
         $this->showForm();
     }
+
 }

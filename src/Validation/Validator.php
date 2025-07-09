@@ -122,4 +122,18 @@ class Validator
     {
         $this->errors[$field] = $message;
     }
+
+    /**
+     * Assainit une valeur en la convertissant en entier si elle est numérique,
+     * sinon retourne une valeur par défaut spécifiée.
+     *
+     * @param mixed $value   La valeur à nettoyer.
+     * @param int   $default La valeur retournée si l’entrée n’est pas numérique (par défaut : 0).
+     *
+     * @return int La valeur entière nettoyée ou la valeur par défaut.
+     */
+    public static function sanitizeValue($value, int $default = 0): int
+    {
+        return is_numeric($value) ? (int) $value : $default;
+    }
 }

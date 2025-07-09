@@ -101,7 +101,6 @@ class DummyCrudController extends AbstractCrudController
      * @param callable $processEdit Fonction exécutant la logique de modification.
      * @param callable $showEditForm Fonction affichant le formulaire d’édition.
      * @param callable $showEditSelectForm Fonction affichant la sélection d’un élément à éditer.
-     * @param callable $getEditId Fonction retournant l’identifiant de l’élément à éditer.
      * @return void
      */
     public function callHandleCrudEdit(
@@ -109,27 +108,24 @@ class DummyCrudController extends AbstractCrudController
         callable $processEdit,
         callable $showEditForm,
         callable $showEditSelectForm,
-        callable $getEditId
     ): void {
-        $this->handleCrudEdit($fieldName, $processEdit, $showEditForm, $showEditSelectForm, $getEditId);
+        $this->handleCrudEdit($fieldName, $processEdit, $showEditForm, $showEditSelectForm);
     }
 
     /**
      * Appelle la méthode handleCrudDelete pour gérer la suppression d’un élément CRUD.
      *
-     * @param callable $getDeleteId Fonction retournant l’identifiant à supprimer.
      * @param callable $processDelete Fonction exécutant la logique de suppression.
      * @param callable $showDeleteSelectForm Fonction affichant la sélection d’un élément à supprimer.
      * @param callable $showDeleteConfirmForm Fonction affichant la confirmation de suppression.
      * @return void
      */
     public function callHandleCrudDelete(
-        callable $getDeleteId,
         callable $processDelete,
         callable $showDeleteSelectForm,
         callable $showDeleteConfirmForm
     ): void {
-        $this->handleCrudDelete($getDeleteId, $processDelete, $showDeleteSelectForm, $showDeleteConfirmForm);
+        $this->handleCrudDelete($processDelete, $showDeleteSelectForm, $showDeleteConfirmForm);
     }
 }
 
@@ -336,9 +332,6 @@ class AbstractCrudControllerTest extends TestCase
             },
             function () {
                 TestCase::fail('showEditSelectForm ne doit pas être appelé');
-            },
-            function () {
-                return 1;
             }
         );
     }
@@ -375,9 +368,6 @@ class AbstractCrudControllerTest extends TestCase
             },
             function () {
                 TestCase::fail('showEditSelectForm ne doit pas être appelé');
-            },
-            function () {
-                return 1;
             }
         );
         $this->assertArrayHasKey('global', $controller->getErrors());
@@ -412,9 +402,6 @@ class AbstractCrudControllerTest extends TestCase
             },
             function () use (&$called) {
                 $called = true;
-            },
-            function () {
-                return 1;
             }
         );
         $this->assertTrue($called, 'showEditSelectForm doit être appelé');
@@ -445,7 +432,6 @@ class AbstractCrudControllerTest extends TestCase
         $controller = $this->controller;
 
         $controller->callHandleCrudDelete(
-            function () {return 1;},
             function ($id) {TestCase::assertSame(1, $id);},
             function () {TestCase::fail('showDeleteSelectForm ne doit pas être appelé');},
             function () {TestCase::fail('showDeleteConfirmForm ne doit pas être appelé');}
@@ -476,7 +462,6 @@ class AbstractCrudControllerTest extends TestCase
 
         $called = false;
         $controller->callHandleCrudDelete(
-            function () {return 1;},
             function () {TestCase::fail('processDelete ne doit pas être appelé');},
             function () use (&$called) {$called = true;},
             function () {TestCase::fail('showDeleteConfirmForm ne doit pas être appelé');}
@@ -505,7 +490,6 @@ class AbstractCrudControllerTest extends TestCase
 
         $called = false;
         $controller->callHandleCrudDelete(
-            function () {return 1;},
             function () {TestCase::fail('processDelete ne doit pas être appelé');},
             function () use (&$called) {$called = true;},
             function () {TestCase::fail('showDeleteConfirmForm ne doit pas être appelé');}
@@ -544,9 +528,6 @@ class AbstractCrudControllerTest extends TestCase
             function () use (&$called) {
                 $called = true;
             },
-            function () {
-                return false; // Simule un ID invalide
-            }
         );
         $this->assertTrue($called, 'showEditSelectForm doit être appelé');
         $this->assertArrayHasKey('global', $controller->getErrors());
@@ -612,9 +593,6 @@ class AbstractCrudControllerTest extends TestCase
             function () {
                 TestCase::fail('showEditSelectForm ne doit pas être appelé');
             },
-            function () {
-                return 1;
-            }
         );
         $this->assertTrue($called, 'showEditForm doit être appelé en GET');
     }
@@ -640,7 +618,6 @@ class AbstractCrudControllerTest extends TestCase
 
         $called = false;
         $controller->callHandleCrudDelete(
-            function () {return false;}, // Simule un ID invalide
             function () {TestCase::fail('processDelete ne doit pas être appelé');},
             function () use (&$called) {$called = true;},
             function () {TestCase::fail('showDeleteConfirmForm ne doit pas être appelé');}
@@ -720,9 +697,6 @@ class AbstractCrudControllerTest extends TestCase
             function () {
                 throw new LogicException('Formulaire de sélection ne doit pas être affiché');
             },
-            function () {
-                return 42; // ou un ID quelconque simulé
-            }
         );
 
         $this->expectNotToPerformAssertions();
@@ -759,9 +733,6 @@ class AbstractCrudControllerTest extends TestCase
 
         $this->controller->callHandleCrudDelete(
             function () {
-                return 42; // 👈 ID de l'entité à supprimer (simulé)
-            },
-            function () {
                 throw new RuntimeException('Boom test'); // 👈 Exception déclenchée pour tester le catch
             },
             function () {
@@ -782,7 +753,7 @@ class AbstractCrudControllerTest extends TestCase
      *
      * Le test simule un scénario dans lequel :
      * - L'utilisateur a soumis un ID de suppression (delete_id)
-     * - L'ID retourné par le callback getDeleteId() est valide
+     * - L'ID est valide
      * - Mais la confirmation explicite de suppression est absente
      *
      * On s’attend alors à ce que le contrôleur appelle $showDeleteConfirmForm($id),
@@ -804,7 +775,6 @@ class AbstractCrudControllerTest extends TestCase
         $called = false;
 
         $this->controller->callHandleCrudDelete(
-            fn() => 42,
             fn() => throw new \LogicException('processDelete ne doit pas être appelé'),
             fn() => throw new \LogicException('Formulaire de sélection ne doit pas être affiché'),
             function ($id) use (&$called) {

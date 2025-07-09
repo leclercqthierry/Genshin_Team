@@ -23,8 +23,7 @@ class PasswordReset
 
     public function __construct(LoggerInterface $logger, MailSenderInterface $mailer)
     {
-        $this->pdo = Database::getInstance();
-        // $this->pdo    = $pdo ?? Database::getInstance();
+        $this->pdo    = Database::getInstance();
         $this->logger = $logger;
         $this->mailer = $mailer;
     }

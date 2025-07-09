@@ -124,9 +124,7 @@ class FarmDaysController extends AbstractCrudController
                     /** @var array<int, string> $days */
                     $validator = $this->validateFarmDays($days);
                     if ($validator->hasErrors()) {
-                        $this->addError('days', $validator->getErrors()['days'] ?? 'Erreur de validation');
-                        $this->setOld(['days' => $v]);
-                        $this->showAddForm();
+                        $this->showValidationError('days', $v, $validator, 'days', fn() => $this->showAddForm());
                         return;
                     }
                     // Si la validation est OK, on traite l'ajout
@@ -194,29 +192,24 @@ class FarmDaysController extends AbstractCrudController
                     // Validation métier
                     /** @var array<int, string> $days */
                     $validator = $this->validateFarmDays($days);
-                    if (! $this->handleValidationIfError('days', $v, $validator, 'days', fn() => $this->showEditForm(is_numeric($id) ? (int) $id : 0))) {
+
+                    if ($validator->hasErrors()) {
+                        $this->showValidationError('days', $v, $validator, 'days', fn() => $this->showEditForm(Validator::sanitizeValue($id)));
                         return;
                     }
 
                     // Si la validation est OK, on traite l'édition
                     $this->processEdit(
-                        is_numeric($id) ? (int) $id : 0,
+                        Validator::sanitizeValue($id),
                         $days
                     );
                 },
-                fn($id) => $this->showEditForm(is_numeric($id) ? (int) $id : 0),
+                fn($id) => $this->showEditForm(Validator::sanitizeValue($id)),
                 fn()    => $this->showEditSelectForm(),
-                fn()    => $this->getEditId()
             );
         } catch (\Throwable $e) {
             $this->handleException($e);
         }
-    }
-
-    private function getEditId(): int | false
-    {
-        $rawId = $_POST['edit_id'];
-        return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
     /**
@@ -313,7 +306,6 @@ class FarmDaysController extends AbstractCrudController
     {
         try {
             $this->handleCrudDelete(
-                fn()    => $this->getDeleteId(),
                 fn($id) => $this->processDelete(is_numeric($id) ? (int) $id : 0),
                 fn()    => $this->showDeleteSelectForm(),
                 fn($id) => $this->showDeleteConfirmForm(is_numeric($id) ? (int) $id : 0)
@@ -321,17 +313,6 @@ class FarmDaysController extends AbstractCrudController
         } catch (\Throwable $e) {
             $this->handleException($e);
         }
-    }
-
-    /**
-     * Récupère l'identifiant à supprimer depuis les données POST.
-     *
-     * @return int|false Retourne l'identifiant sous forme d'entier s'il est valide, sinon false.
-     */
-    private function getDeleteId(): int | false
-    {
-        $rawId = $_POST['delete_id'];
-        return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
     /**
