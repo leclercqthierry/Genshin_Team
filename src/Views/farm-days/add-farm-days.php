@@ -26,8 +26,8 @@ foreach ($jours as $jour) {
             ' . $jour . '
         </label>';
 }
-$errorDay = (isset($errors) && is_array($errors) && isset($errors['day']) && is_string($errors['day'])) ? $errors['day'] : '';
+$errorDay = (isset($errors) && is_array($errors) && isset($errors['days']) && is_string($errors['days'])) ? $errors['days'] : '';
 $fieldHtml .=
-    ($errorDay !== '' ? '<p id="error-day" class="mt-1 text-xs text-pink-300">' . htmlspecialchars($errorDay) . '</p>' : '') .
+    ($errorDay !== '' ? '<p id="error-day" class="mt-1 text-xs text-pink-300 text-center">' . htmlspecialchars($errorDay) . '</p>' : '') .
     '</div>';
 include __DIR__ . '/../partials/add-item.php';

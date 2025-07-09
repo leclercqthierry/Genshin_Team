@@ -47,21 +47,12 @@ abstract class AbstractCrudModel implements CrudModelInterface
      */
     public function add(string $name): bool
     {
-        try {
-            $stmt = $this->pdo->prepare(
-                "INSERT INTO {$this->table} ({$this->nameField}) VALUES (:name)"
-            );
-            $result = $stmt->execute(['name' => $name]);
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO {$this->table} ({$this->nameField}) VALUES (:name)"
+        );
+        $result = $stmt->execute(['name' => $name]);
 
-            if (! $result) {
-                $this->logger->error("Échec de l'insertion dans {$this->table}");
-            }
-
-            return $result;
-        } catch (\Throwable $e) {
-            $this->logger->error($e->getMessage());
-            return false;
-        }
+        return $result;
     }
 
     /**
@@ -72,16 +63,13 @@ abstract class AbstractCrudModel implements CrudModelInterface
     public function getAll(): array
     {
         $stmt = $this->pdo->query("SELECT * FROM {$this->table} ORDER BY {$this->nameField}");
-
         if ($stmt === false) {
-            $this->logger->error("Échec de récupération des données dans {$this->table}");
-            return [];
+            throw new \RuntimeException("Erreur lors de la requête SQL");
         }
 
         /** @var array<array<string, mixed>> $result */
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return $result;
-
     }
 
     /**
@@ -135,5 +123,19 @@ abstract class AbstractCrudModel implements CrudModelInterface
         );
 
         return $stmt->execute(['id' => $id]);
+    }
+
+    /**
+     * Vérifie si une entrée existe en base selon un nom donné.
+     *
+     * @param string $name Le nom à rechercher.
+     * @return bool `true` si une entrée existe, `false` sinon.
+     */
+    public function existsByName(string $name): bool
+    {
+        $sql  = "SELECT 1 FROM {$this->table} WHERE {$this->nameField} = :name LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['name' => $name]);
+        return $stmt->fetchColumn() !== false;
     }
 }

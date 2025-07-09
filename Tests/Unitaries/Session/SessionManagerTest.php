@@ -14,32 +14,45 @@ use PHPUnit\Framework\TestCase;
 class SessionManagerTest extends TestCase
 {
     /**
-     * Démarre la session PHP avant chaque test et réinitialise $_SESSION.
+     * Prépare un environnement de test isolé pour la session.
      *
-     * @return void
+     * Cette méthode :
+     * - Interrompt toute session éventuellement active via session_abort()
+     * - Supprime le cookie de session pour éviter les résidus entre tests
+     * - Démarre une nouvelle session vierge
+     * - Réinitialise $_SESSION pour garantir un état propre
      */
     protected function setUp(): void
     {
-        // On démarre une session propre si nécessaire
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
+        // Abort toute session précédente ouverte automatiquement
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_abort();
         }
 
-        // Réinitialise le contenu de $_SESSION pour garantir l’isolement des tests
+        // Supprime les traces éventuelles côté cookie
+        unset($_COOKIE[session_name()]);
+
+        // Démarre une session 100 % propre
+        session_start();
         $_SESSION = [];
     }
 
     /**
-     * Détruit la session active après chaque test.
+     * Nettoie l'environnement de test de session après chaque méthode.
      *
-     * @return void
+     * Cette méthode :
+     * - Détruit la session si elle est active
+     * - Vide $_SESSION
+     * - Supprime le cookie de session pour assurer une isolation complète
      */
     protected function tearDown(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
-            session_unset();   // Vide $_SESSION
-            session_destroy(); // Termine la session
+            $_SESSION = [];
+            session_destroy();
         }
+
+        unset($_COOKIE[session_name()]);
     }
 
     /**
@@ -102,4 +115,84 @@ class SessionManagerTest extends TestCase
         // → on teste ici qu’elle est bien redevenue un tableau vide
         $this->assertEmpty($_SESSION);
     }
+
+    /**
+     * Vérifie que la méthode set enregistre correctement une donnée dans la session
+     * et que la méthode get permet ensuite de la récupérer.
+     *
+     * Ce test :
+     * - Stocke une clé 'user' avec la valeur 'Aether'
+     * - Vérifie que la lecture via get renvoie bien 'Aether'
+     */
+    public function testSetAndGet(): void
+    {
+        $session = new SessionManager();
+
+        $session->set('user', 'Aether');
+        $value = $session->get('user');
+
+        $this->assertSame('Aether', $value);
+    }
+
+    /**
+     * Vérifie que la méthode get retourne la valeur par défaut
+     * si la clé demandée n'existe pas dans la session.
+     *
+     * Ce test :
+     * - Tente de lire une clé absente
+     * - Vérifie que 'default_value' est bien retourné
+     */
+    public function testGetReturnsDefaultIfKeyMissing(): void
+    {
+        $session = new SessionManager();
+
+        $value = $session->get('unknown_key', 'default_value');
+        $this->assertSame('default_value', $value);
+    }
+
+    /**
+     * Vérifie que la méthode start() appelle session_start()
+     * lorsque aucune session n'est encore active.
+     *
+     * Ce test :
+     * - Ferme une session active si nécessaire
+     * - Vérifie que le statut initial est PHP_SESSION_NONE
+     * - Instancie le SessionManager qui déclenche start()
+     * - Vérifie que la session est effectivement démarrée
+     */
+    public function testStartTriggersSessionStart(): void
+    {
+        // Ferme toute session active pour forcer l’appel à session_start()
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_abort(); // annule la session sans la détruire
+        }
+
+        $this->assertSame(PHP_SESSION_NONE, session_status());
+
+        $session = new SessionManager();
+
+        $this->assertSame(PHP_SESSION_ACTIVE, session_status());
+        $this->assertTrue($session->isStarted());
+    }
+
+    /**
+     * Vérifie que la méthode clear supprime toutes les entrées de la session.
+     *
+     * Ce test :
+     * - Ajoute plusieurs clés dans la session
+     * - Appelle clear()
+     * - Vérifie que $_SESSION est vide
+     */
+    public function testClearEmptiesSession(): void
+    {
+        $session = new SessionManager();
+
+        $session->set('key1', 'value1');
+        $session->set('key2', 'value2');
+
+        $session->clear();
+
+        $this->assertSame([], $_SESSION);
+    }
+
 }

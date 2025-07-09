@@ -33,6 +33,15 @@ class HomeController extends AbstractController
      */
     public function run(): void
     {}
+
+    /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
 }
 
 /**

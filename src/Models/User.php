@@ -5,9 +5,7 @@ namespace GenshinTeam\Models;
 
 use Exception;
 use GenshinTeam\Connexion\Database;
-use GenshinTeam\Utils\ErrorHandler;
 use PDO;
-use PDOException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -34,6 +32,7 @@ class User
      *
      * @var LoggerInterface
      */
+    /** @phpstan-ignore-next-line */
     private LoggerInterface $logger;
 
     /**
@@ -64,19 +63,14 @@ class User
      */
     public function createUser(string $nickname, string $email, string $hashedPassword): bool
     {
-        try {
-            $sql  = "INSERT INTO zell_users (nickname, email, password, id_role) VALUES (:nickname, :email, :password, :id_role)";
-            $stmt = $this->pdo->prepare($sql);
-            return $stmt->execute([
-                ':nickname' => $nickname,
-                ':email'    => $email,
-                ':password' => $hashedPassword,
-                ':id_role'  => 2, // 2 correspond au rôle de Membre
-            ]);
-        } catch (PDOException $e) {
-            (new ErrorHandler($this->logger))->handle($e);
-            return false; // ou null selon la méthode
-        }
+        $sql  = "INSERT INTO zell_users (nickname, email, password, id_role) VALUES (:nickname, :email, :password, :id_role)";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            ':nickname' => $nickname,
+            ':email'    => $email,
+            ':password' => $hashedPassword,
+            ':id_role'  => 2, // 2 correspond au rôle de Membre
+        ]);
     }
 
     /**
@@ -91,18 +85,13 @@ class User
      */
     public function getUserByNickname(string $nickname): ?array
     {
-        try {
-            $sql  = "SELECT * FROM zell_users WHERE nickname = :nickname LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':nickname' => $nickname]);
+        $sql  = "SELECT * FROM zell_users WHERE nickname = :nickname LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':nickname' => $nickname]);
 
-            /** @var array<string, mixed>|false $user */
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $user !== false ? $user : null;
-        } catch (PDOException $e) {
-            (new ErrorHandler($this->logger))->handle($e);
-            return null;
-        }
+        /** @var array<string, mixed>|false $user */
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user !== false ? $user : null;
     }
 
     /**
@@ -117,17 +106,12 @@ class User
      */
     public function getUserByEmail(string $email): ?array
     {
-        try {
-            $sql  = "SELECT * FROM zell_users WHERE email = :email LIMIT 1";
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':email' => $email]);
+        $sql  = "SELECT * FROM zell_users WHERE email = :email LIMIT 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':email' => $email]);
 
-            /** @var array<string, mixed>|false $user */
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $user !== false ? $user : null;
-        } catch (PDOException $e) {
-            (new ErrorHandler($this->logger))->handle($e);
-            return null;
-        }
+        /** @var array<string, mixed>|false $user */
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user !== false ? $user : null;
     }
 }

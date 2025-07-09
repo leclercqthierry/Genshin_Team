@@ -3,6 +3,7 @@ declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\LoginController;
+use GenshinTeam\Models\User;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -32,6 +33,10 @@ class LoginControllerTest extends TestCase
      */
     protected function setUp(): void
     {
+        if (! defined('BASE_URL')) {
+            define('BASE_URL', 'http://localhost');
+        }
+
         // Création d'une base SQLite temporaire en mémoire
         $pdo = new PDO('sqlite::memory:');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -314,6 +319,91 @@ class LoginControllerTest extends TestCase
 
         // Appel réel de la méthode protégée dans un contexte contrôlé
         $refMethod->invoke($controller);
+    }
+
+    /**
+     * Teste que la méthode handleLogin capture correctement les exceptions de type Throwable.
+     *
+     * Ce test simule une requête POST avec des données de connexion valides et un jeton CSRF valide.
+     * Il utilise un mock du modèle User configuré pour lancer une exception lors de l'appel à getUserByNickname().
+     * Le contrôleur personnalisé surcharge handleException() pour indiquer si une exception a été capturée.
+     * Le test vérifie que le bloc catch a bien été exécuté en s'assurant que la propriété $caught vaut true.
+     *
+     * @return void
+     */
+    public function testHandleLoginCatchesThrowable(): void
+    {
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        // Simule les données postées avec un CSRF valide
+        $_POST = [
+            'nickname'   => 'TestUser',
+            'password'   => 'SecurePass123!',
+            'csrf_token' => 'valid_token',
+        ];
+
+        // Faux modèle qui déclenche une exception sur getUserByNickname()
+        $userModel = $this->createMock(User::class);
+        $userModel->method('getUserByNickname')
+            ->willThrowException(new \RuntimeException('Erreur simulée'));
+
+        // Dépendances du contrôleur
+        $renderer       = new Renderer($this->viewPath);
+        $sessionManager = new SessionManager();
+        $sessionManager->set('csrf_token', 'valid_token');
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+
+        // Contrôleur personnalisé pour capturer l’appel à handleException()
+        $controller = new class($renderer, $logger, $errorPresenter, $sessionManager, $userModel) extends LoginController
+        {
+            public bool $caught = false;
+
+            protected function isCsrfTokenValid(): bool
+            {return true;}
+            protected function hasTooManyAttempts(): bool
+            {return false;}
+            protected function hasEmptyFields(string $nickname, string $password): bool
+            {return false;}
+            protected function handleException(\Throwable $e): void
+            {$this->caught = true;}
+        };
+
+        // Appel de la méthode protégée via Reflection
+        $ref    = new \ReflectionClass($controller);
+        $method = $ref->getMethod('handleLogin');
+        $method->setAccessible(true);
+        $method->invoke($controller);
+
+        // ✅ Vérifie que le bloc catch a bien été exécuté
+        $this->assertTrue($controller->caught, 'Le bloc catch n’a pas été déclenché comme prévu');
+    }
+
+    /**
+     * Vérifie que la méthode setCurrentRoute() est bien définie et exécutable,
+     * même si elle n'a aucun effet observable (implémentation vide).
+     *
+     * Ce test garantit que la classe implémente correctement la méthode abstraite
+     * héritée de AbstractController, et qu'elle peut être invoquée sans erreur.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\AdminController::setCurrentRoute
+     */
+    public function testSetCurrentRouteIsCallable(): void
+    {
+        $renderer  = new Renderer($this->viewPath);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session   = new SessionManager();
+
+        $controller = new LoginController($renderer, $logger, $presenter, $session);
+
+        // L'appel ne doit rien faire, mais il ne doit surtout pas planter
+        $controller->setCurrentRoute('index');
+
+        // Tu peux ajouter une assertion vide ou une ligne de vérification basique
+        $this->expectNotToPerformAssertions();
     }
 
 }

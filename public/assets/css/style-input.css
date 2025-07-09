@@ -19,9 +19,32 @@
 @font-face {
     font-family: "RobotoCondensed";
     src: url(../font/RobotoCondensed-Bold.ttf);
+    font-display: swap;
 }
 
 @font-face {
     font-family: "Roboto";
     src: url(../font/Roboto-Regular.ttf);
+    font-display: swap;
+}
+
+.arrow-indicator::after {
+    content: "⬅";
+    position: absolute;
+    top: 30%;
+    right: -30px;
+    transform: translateY(-50%);
+    font-size: 1.25rem;
+    animation: slideLeft 0.8s infinite;
+    color: var(--font-color);
+}
+
+@keyframes slideLeft {
+    0%,
+    100% {
+        transform: translateY(-50%) translateY(0);
+    }
+    50% {
+        transform: translateY(-50%) translateX(-6px);
+    }
 }

@@ -1,7 +1,7 @@
 <?php
 
 use GenshinTeam\Connexion\Database;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase\DatabaseTestCase;
 
 /**
  * Test d’intégration de la classe Database.
@@ -13,27 +13,14 @@ use PHPUnit\Framework\TestCase;
  *
  * @covers \GenshinTeam\Connexion\Database
  */
-class DatabaseIntegrationTest extends TestCase
+class DatabaseIntegrationTest extends DatabaseTestCase
 {
-    /**
-     * Configure une instance PDO SQLite en mémoire à injecter dans Database
-     * pour les tests indépendants de toute connexion réelle à MySQL.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        /** @var \PDO $pdoMock */
-        $pdoMock = new PDO('sqlite::memory:');
-        $pdoMock->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        Database::setInstance($pdoMock);
-    }
 
     /**
      * Vérifie que les variables d’environnement nécessaires à la connexion MySQL
      * sont bien définies, et qu'une connexion réelle est possible.
      *
+     * @group integration
      * @return void
      */
     public function testDatabaseConnection(): void
@@ -49,6 +36,7 @@ class DatabaseIntegrationTest extends TestCase
                 'Thierry',
                 'Aubvu7k7'
             );
+
             /** @var \PDOStatement $stmt */
             $stmt = $pdo->query('SELECT 1');
             $this->assertNotFalse($stmt, 'Connexion à la base réussie.');
@@ -58,49 +46,35 @@ class DatabaseIntegrationTest extends TestCase
     }
 
     /**
-     * Teste la méthode getInstance() de la classe Database en environnement test,
-     * vérifie les attributs de connexion PDO définis et la validité de la connexion.
+     * Vérifie que Database::getInstance() retourne un PDO correctement configuré.
      *
      * @return void
      */
     public function testPdoConfigurationAndDsnConstruction(): void
     {
         Database::setInstance(null); // Reset instance singleton
-        putenv('APP_ENV=test');
 
-        file_put_contents('.env.test', implode(PHP_EOL, [
-            'MYSQL_DATABASE=test_db',
-            'MYSQL_USER=Thierry',
-            'MYSQL_PASSWORD=Aubvu7k7',
-            'PMA_HOST=mysql-container',
-        ]));
+        /** @var \PDO $pdo */
+        $pdo = Database::getInstance(testing: true);
 
-        try {
-            /** @var \PDO $pdo */
-            $pdo = Database::getInstance(testing: true);
+        $this->assertInstanceOf(PDO::class, $pdo);
 
-            $this->assertInstanceOf(PDO::class, $pdo);
+        $this->assertSame(
+            PDO::ERRMODE_EXCEPTION,
+            $pdo->getAttribute(PDO::ATTR_ERRMODE),
+            'Le mode d’erreur attendu est PDO::ERRMODE_EXCEPTION'
+        );
 
-            $this->assertSame(
-                PDO::ERRMODE_EXCEPTION,
-                $pdo->getAttribute(PDO::ATTR_ERRMODE),
-                'Le mode d’erreur attendu est PDO::ERRMODE_EXCEPTION'
-            );
+        $this->assertSame(
+            PDO::FETCH_ASSOC,
+            $pdo->getAttribute(PDO::ATTR_DEFAULT_FETCH_MODE),
+            'Le mode de fetch attendu est PDO::FETCH_ASSOC'
+        );
 
-            $this->assertSame(
-                PDO::FETCH_ASSOC,
-                $pdo->getAttribute(PDO::ATTR_DEFAULT_FETCH_MODE),
-                'Le mode de fetch attendu est PDO::FETCH_ASSOC'
-            );
+        /** @var \PDOStatement $stmt */
+        // En effet PDO est configuré pour renvoyer une PDOException en cas d'erreur qui sera capturé dans le catch
 
-            /** @var \PDOStatement $stmt */
-            // En effet PDO est configuré pour renvoyer une PDOException en cas d'erreur qui sera capturé dans le catch
-
-            $stmt = $pdo->query('SELECT 1');
-            $this->assertNotFalse($stmt, 'Requête SELECT 1 devrait réussir.');
-
-        } catch (PDOException $e) {
-            $this->fail('La connexion PDO n’aurait pas dû échouer : ' . $e->getMessage());
-        }
+        $stmt = $pdo->query('SELECT 1');
+        $this->assertNotFalse($stmt, 'Requête SELECT 1 devrait réussir.');
     }
 }

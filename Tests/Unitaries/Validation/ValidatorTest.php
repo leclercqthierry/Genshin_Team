@@ -174,4 +174,18 @@ final class ValidatorTest extends TestCase
 
         $this->assertFalse($validator->hasErrors());
     }
+    /**
+     * Teste que setError ajoute une erreur personnalisée.
+     *
+     * @return void
+     */
+    public function testSetErrorAddsError(): void
+    {
+        $validator = new Validator();
+        $validator->setError('foo', 'Erreur personnalisée');
+        $this->assertTrue($validator->hasErrors());
+        $errors = $validator->getErrors();
+        $this->assertArrayHasKey('foo', $errors);
+        $this->assertSame('Erreur personnalisée', $errors['foo']);
+    }
 }

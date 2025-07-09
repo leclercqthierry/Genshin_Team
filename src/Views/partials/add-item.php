@@ -9,7 +9,7 @@
      * @var array<string, mixed>  $old // exemple : ['stat' => '42'] ou autres champs
      * @var string                $fieldHtml // HTML du champ principal (input ou checkboxes) */
 ?>
-    <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">
+    <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase text-center">
         <?php echo htmlspecialchars($title); ?>
     </h1>
 
@@ -56,5 +56,4 @@
                 <?php echo $isEdit ? 'Modifier' : 'Ajouter'; ?>
             </button>
         </div>
-    </form></string,
->
+    </form>

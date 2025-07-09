@@ -10,7 +10,7 @@
      * @var array<string, string> $errors
      */
 ?>
-    <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">
+    <h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase text-center">
         <?php echo htmlspecialchars($title) ?>
     </h1>
 

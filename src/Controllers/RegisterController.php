@@ -7,7 +7,7 @@ use GenshinTeam\Controllers\AbstractController;
 use GenshinTeam\Models\User;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Utils\ErrorHandler;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
@@ -24,11 +24,7 @@ use Psr\Log\LoggerInterface;
  */
 class RegisterController extends AbstractController
 {
-    /** @var LoggerInterface */
-    private LoggerInterface $logger;
-
-    /** @var ErrorPresenterInterface */
-    private ErrorPresenterInterface $errorPresenter;
+    use ExceptionHandlerTrait;
 
     /** @var SessionManager */
     protected SessionManager $session;
@@ -87,6 +83,15 @@ class RegisterController extends AbstractController
     }
 
     /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
      * Affiche le formulaire d'inscription à l'utilisateur.
      *
      * Récupère les anciennes valeurs saisies ou définit des valeurs par défaut,
@@ -112,33 +117,33 @@ class RegisterController extends AbstractController
                 'old'        => $old,
             ]
         ));
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/register-validator.js"></script>
+        ');
 
         try {
             // Rendu final de la vue principale avec toutes les données préparées
             $this->renderDefault();
         } catch (\Throwable $e) {
-            // Utilisation de l'instance du gestionnaire d'erreurs pour traiter l'exception
-            $handler = new ErrorHandler($this->logger);
-            $payload = $handler->handle($e);
-            $this->errorPresenter->present($payload);
-
+            $this->handleException($e);
         }
     }
 
-/**
- * Traite la tentative d'inscription de l'utilisateur.
- *
- * Vérifie successivement :
- * - la validité du token CSRF (sécurité contre les attaques)
- * - la conformité des champs (format, présence, sécurité)
- * - la disponibilité du pseudo et de l'email
- * - la création de l'utilisateur avec mot de passe sécurisé
- *
- * En cas de succès, l'utilisateur est connecté automatiquement puis redirigé.
- * En cas d'erreur, les messages sont affichés avec les valeurs précédemment saisies.
- *
- * @return void
- */
+    /**
+     * Traite la tentative d'inscription de l'utilisateur.
+     *
+     * Vérifie successivement :
+     * - la validité du token CSRF (sécurité contre les attaques)
+     * - la conformité des champs (format, présence, sécurité)
+     * - la disponibilité du pseudo et de l'email
+     * - la création de l'utilisateur avec mot de passe sécurisé
+     *
+     * En cas de succès, l'utilisateur est connecté automatiquement puis redirigé.
+     * En cas d'erreur, les messages sont affichés avec les valeurs précédemment saisies.
+     *
+     * @return void
+     */
     protected function handleRegister(): void
     {
         // Étape 1 : Protection CSRF
@@ -163,20 +168,26 @@ class RegisterController extends AbstractController
         $storedHash = password_hash($password, PASSWORD_DEFAULT);
 
         // Étape 6 : Vérifie unicité du pseudo
-        if ($this->userModel->getUserByNickname($nickname)) {
-            $this->handleNicknameTaken($nickname, $email);
-            return;
-        }
+        try {
+            if ($this->userModel->getUserByNickname($nickname)) {
+                $this->handleNicknameTaken($nickname, $email);
+                return;
+            }
 
-        // Étape 7 : Vérifie unicité de l'email
-        if ($this->userModel->getUserByEmail($email)) {
-            $this->handleEmailTaken($nickname, $email);
-            return;
-        }
+            // Étape 7 : Vérifie unicité de l'email
+            if ($this->userModel->getUserByEmail($email)) {
+                $this->handleEmailTaken($nickname, $email);
+                return;
+            }
 
-        // Étape 8 : Création en base
-        if (! $this->userModel->createUser($nickname, $email, $storedHash)) {
-            $this->handleUserCreationFailure($nickname, $email);
+            // Étape 8 : Création en base
+            if (! $this->userModel->createUser($nickname, $email, $storedHash)) {
+                $this->handleUserCreationFailure($nickname, $email);
+                return;
+            }
+
+        } catch (\Throwable $e) {
+            $this->handleException($e);
             return;
         }
 
@@ -296,5 +307,4 @@ class RegisterController extends AbstractController
         $this->session->set('user', $nickname);
         $this->redirect('index');
     }
-
 }

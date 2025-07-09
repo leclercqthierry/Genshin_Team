@@ -70,25 +70,6 @@ class AbstractCrudModelTest extends TestCase
             ->method('prepare')
             ->willReturn($stmt);
 
-        $this->logger->expects($this->once())->method('error');
-
-        $model = new DummyModel($this->pdo, $this->logger);
-        $this->assertFalse($model->add('TestName'));
-    }
-
-    /**
-     * Vérifie que add() gère proprement une exception PDO et logue l’erreur.
-     */
-    public function testAddThrowsException(): void
-    {
-        $this->pdo->expects($this->once())
-            ->method('prepare')
-            ->willThrowException(new \Exception('DB error'));
-
-        $this->logger->expects($this->once())
-            ->method('error')
-            ->with('DB error');
-
         $model = new DummyModel($this->pdo, $this->logger);
         $this->assertFalse($model->add('TestName'));
     }
@@ -119,20 +100,26 @@ class AbstractCrudModelTest extends TestCase
     }
 
     /**
-     * Vérifie que getAll() retourne un tableau vide en cas d’échec SQL.
+     * Vérifie que getAll() lève une RuntimeException si la requête SQL échoue.
+     *
+     * Ce test simule un retour `false` de la méthode `PDO::query()` afin de déclencher
+     * l'exception prévue dans le modèle. Il s'assure également que le message d'erreur
+     * correspond à celui défini dans le code.
+     *
+     * @covers \GenshinTeam\Models\AbstractCrudModel::getAll
      */
-    public function testGetAllQueryFailure(): void
+    public function testGetAllThrowsRuntimeExceptionOnFailure(): void
     {
         $this->pdo->expects($this->once())
             ->method('query')
             ->willReturn(false);
 
-        $this->logger->expects($this->once())
-            ->method('error')
-            ->with("Échec de récupération des données dans dummy_table");
-
         $model = new DummyModel($this->pdo, $this->logger);
-        $this->assertSame([], $model->getAll());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Erreur lors de la requête SQL");
+
+        $model->getAll();
     }
 
     /**
@@ -205,5 +192,67 @@ class AbstractCrudModelTest extends TestCase
 
         $model = new DummyModel($this->pdo, $this->logger);
         $this->assertTrue($model->delete(1));
+    }
+
+    /**
+     * Vérifie que la méthode existsByName() retourne true lorsque le nom existe en base.
+     *
+     * Ce test simule une exécution réussie de la requête préparée sur la base de données
+     * et un résultat non nul pour fetchColumn() (équivalent à une ligne trouvée).
+     *
+     * Il s'assure également que :
+     * - le nom est correctement lié en paramètre :name
+     * - la requête SQL attendue est utilisée avec prepare()
+     * - le modèle DummyModel fonctionne comme prévu dans ce cas
+     *
+     * @return void
+     */
+    public function testExistsByNameReturnsTrueIfFound(): void
+    {
+        $stmt = $this->createMock(\PDOStatement::class);
+        $stmt->expects($this->once())
+            ->method('execute')
+            ->with(['name' => 'foo']);
+        $stmt->expects($this->once())
+            ->method('fetchColumn')
+            ->willReturn(1);
+
+        $this->pdo->expects($this->once())
+            ->method('prepare')
+            ->with('SELECT 1 FROM dummy_table WHERE dummy_name = :name LIMIT 1')
+            ->willReturn($stmt);
+
+        $model = new DummyModel($this->pdo, $this->logger);
+        $this->assertTrue($model->existsByName('foo'));
+    }
+
+    /**
+     * Vérifie que la méthode existsByName() retourne false lorsque le nom n’existe pas dans la base de données.
+     *
+     * Ce test simule une requête SQL SELECT avec le nom 'bar' et un retour de fetchColumn() à false,
+     * ce qui correspond à un résultat vide. Il s’assure que :
+     * - la requête SQL attendue est bien préparée,
+     * - les bons paramètres sont liés,
+     * - la méthode existeByName() se comporte correctement en absence de correspondance.
+     *
+     * @return void
+     */
+    public function testExistsByNameReturnsFalseIfNotFound(): void
+    {
+        $stmt = $this->createMock(\PDOStatement::class);
+        $stmt->expects($this->once())
+            ->method('execute')
+            ->with(['name' => 'bar']);
+        $stmt->expects($this->once())
+            ->method('fetchColumn')
+            ->willReturn(false);
+
+        $this->pdo->expects($this->once())
+            ->method('prepare')
+            ->with('SELECT 1 FROM dummy_table WHERE dummy_name = :name LIMIT 1')
+            ->willReturn($stmt);
+
+        $model = new DummyModel($this->pdo, $this->logger);
+        $this->assertFalse($model->existsByName('bar'));
     }
 }

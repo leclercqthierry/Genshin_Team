@@ -364,4 +364,97 @@ class RegisterControllerTest extends TestCase
         $refMethod->setAccessible(true);
         $refMethod->invoke($controller);
     }
+
+    /**
+     * Teste la gestion des exceptions dans la méthode handleRegister().
+     *
+     * Ce test simule un scénario dans lequel le modèle User déclenche une exception
+     * lors de l'appel à getUserByNickname(), ce qui force le contrôleur à capturer
+     * cette exception dans un bloc try/catch et à invoquer handleException().
+     *
+     * L'objectif est de s'assurer que le bloc catch est bien exécuté et que la
+     * méthode handleException() est effectivement appelée.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\RegisterController::handleRegister
+     */
+    public function testHandleRegisterCatchesThrowable(): void
+    {
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+
+        // Faux modèle qui déclenche une exception
+        $userModel = $this->createMock(User::class);
+        $userModel->method('getUserByNickname')
+            ->willThrowException(new RuntimeException('Erreur simulée'));
+
+        // Mocks des autres dépendances
+        $renderer       = new Renderer($this->viewPath);
+        $sessionManager = new SessionManager();
+        $sessionManager->set('csrf_token', 'valid_token');
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+
+        // Simule les données du formulaire
+        $_POST = [
+            'nickname'         => 'TestUser',
+            'email'            => 'test@example.com',
+            'password'         => 'Password80??',
+            'confirm-password' => 'Password80??',
+            'csrf_token'       => 'valid_token',
+        ];
+
+        // Contrôleur personnalisé pour détecter l'appel à handleException()
+        $controller = new class($renderer, $logger, $errorPresenter, $sessionManager, $userModel) extends RegisterController
+        {
+            public bool $caught = false;
+
+            protected function isCsrfTokenValid(): bool
+            {
+                return true;
+            }
+
+            protected function handleException(\Throwable $e): void
+            {
+                $this->caught = true;
+            }
+        };
+
+        // Appel de la méthode protégée via Reflection
+        $ref    = new \ReflectionClass($controller);
+        $method = $ref->getMethod('handleRegister');
+        $method->setAccessible(true);
+        $method->invoke($controller);
+
+        // ✅ Le bloc catch a bien été exécuté
+        $this->assertTrue($controller->caught, 'Le bloc catch n’a pas été déclenché comme prévu');
+    }
+
+    /**
+     * Vérifie que la méthode setCurrentRoute() est bien définie et exécutable,
+     * même si elle n'a aucun effet observable (implémentation vide).
+     *
+     * Ce test garantit que la classe implémente correctement la méthode abstraite
+     * héritée de AbstractController, et qu'elle peut être invoquée sans erreur.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\AdminController::setCurrentRoute
+     */
+    public function testSetCurrentRouteIsCallable(): void
+    {
+        $renderer  = $this->createMock(Renderer::class);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session   = new SessionManager();
+
+        $controller = new RegisterController($renderer, $logger, $presenter, $session);
+
+        // L'appel ne doit rien faire, mais il ne doit surtout pas planter
+        $controller->setCurrentRoute('index');
+
+        // Tu peux ajouter une assertion vide ou une ligne de vérification basique
+        $this->expectNotToPerformAssertions();
+    }
+
 }

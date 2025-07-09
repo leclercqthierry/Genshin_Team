@@ -7,7 +7,7 @@ use GenshinTeam\Controllers\AbstractController;
 use GenshinTeam\Models\User;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Utils\ErrorHandler;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -25,12 +25,7 @@ use Psr\Log\LoggerInterface;
  */
 class LoginController extends AbstractController
 {
-
-    /** @var LoggerInterface Enregistreur PSR-3 des erreurs et activités. */
-    private LoggerInterface $logger;
-
-    /** @var ErrorPresenterInterface Gère l'affichage utilisateur des erreurs récupérées. */
-    private ErrorPresenterInterface $errorPresenter;
+    use ExceptionHandlerTrait;
 
     /** @var SessionManager Gestionnaire de session utilisateur. */
     protected SessionManager $session;
@@ -85,6 +80,15 @@ class LoginController extends AbstractController
     }
 
     /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
      * Affiche le formulaire de connexion à l'utilisateur.
      *
      * Prépare les données nécessaires à la vue (titre, erreurs, ancienne saisie du pseudo et jeton CSRF)
@@ -103,6 +107,10 @@ class LoginController extends AbstractController
         // Ajout des données à la vue : titre et messages d'erreurs
         $this->addData('title', 'Se Connecter');
         $this->addData('errors', $this->getErrors());
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/login-validator.js"></script>
+        ');
 
         // Passage du jeton CSRF, des erreurs et de la saisie précédente à la vue 'login'
         $csrf_token = $this->session->get('csrf_token');
@@ -119,11 +127,7 @@ class LoginController extends AbstractController
             // Rendu final de la vue avec l'ensemble des données préparées
             $this->renderDefault();
         } catch (\Throwable $e) {
-            // Utilise l'instance du gestionnaire d'erreurs pour traiter l'exception
-            $handler = new ErrorHandler($this->logger);
-            $payload = $handler->handle($e);
-            $this->errorPresenter->present($payload);
-
+            $this->handleException($e);
         }
     }
 
@@ -164,7 +168,12 @@ class LoginController extends AbstractController
         }
 
         // Recherche de l’utilisateur
-        $user = $this->userModel->getUserByNickname($nickname);
+        try {
+            $user = $this->userModel->getUserByNickname($nickname);
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+            return;
+        }
 
         // Vérifie les identifiants
         if (! $this->isValidUser($user, $password)) {

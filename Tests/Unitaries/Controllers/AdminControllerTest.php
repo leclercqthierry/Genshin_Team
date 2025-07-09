@@ -157,6 +157,74 @@ class AdminControllerTest extends TestCase
 
         $controller->run();
         $this->addToAssertionCount(1);
-
     }
+
+    /**
+     * Vérifie que handleRequest() intercepte correctement une exception levée par renderDefault()
+     * lorsque l'accès est refusé à un utilisateur non connecté ou non administrateur.
+     *
+     * Le test simule un scénario d'accès interdit (user et id_role à null), ce qui entraîne un appel
+     * à renderDefault() à l’intérieur d’un bloc try/catch spécifique. Cette méthode déclenche ici une
+     * exception contrôlée via un mock du Renderer.
+     *
+     * L'objectif est de confirmer que l'exception est capturée proprement par handleRequest()
+     * et déléguée au ErrorPresenterInterface sans provoquer d'erreur fatale.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\AdminController::handleRequest
+     */
+    public function testHandleRequestCatchesRenderErrorWhenAccessDenied(): void
+    {
+        $session = new SessionManager();
+        $session->set('user', null);    // Pas connecté
+        $session->set('id_role', null); // Pas admin
+
+        // Mock Renderer pour injecter une exception via renderDefault()
+        $renderer = $this->getMockBuilder(Renderer::class)
+            ->setConstructorArgs([$this->viewPath])
+            ->onlyMethods(['render'])
+            ->getMock();
+
+        // Forcer render() à lancer une exception (via renderDefault)
+        $renderer->method('render')->willThrowException(new \Exception('Erreur de rendu simulée'));
+
+        // On ne teste pas le contenu ici, juste la gestion de l'exception
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+
+        // On s’attend à ce que handleException soit appelé 1x avec l’exception levée
+        $presenter->expects($this->once())->method('present');
+
+        $controller = new AdminController($renderer, $logger, $presenter, $session);
+
+        // Appel
+        $controller->run();
+
+        // On ne s’attend pas à un plantage, donc : test réussi = aucun crash
+        $this->addToAssertionCount(1);
+    }
+
+    /**
+     * Vérifie que la méthode setCurrentRoute() est bien définie et exécutable,
+     * même si elle n'a aucun effet observable (implémentation vide).
+     *
+     * Ce test garantit que la classe implémente correctement la méthode abstraite
+     * héritée de AbstractController, et qu'elle peut être invoquée sans erreur.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\AdminController::setCurrentRoute
+     */
+    public function testSetCurrentRouteIsCallable(): void
+    {
+        $controller = $this->getController(new SessionManager());
+
+        // L'appel ne doit rien faire, mais il ne doit surtout pas planter
+        $controller->setCurrentRoute('admin.dashboard');
+
+        // Tu peux ajouter une assertion vide ou une ligne de vérification basique
+        $this->expectNotToPerformAssertions();
+    }
+
 }

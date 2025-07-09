@@ -3,7 +3,8 @@
      * @var array{
      *   title: string,
      *   content: string,
-     *   scripts?: string
+     *   scripts?: string,
+     *   head?: string
      * } $data
      */
 ?>
@@ -11,9 +12,17 @@
 <html lang="fr">
     <head>
         <meta charset="UTF-8" />
+<?php
+    // Possibilité d'ajout de données dans le head (meta, link...etc)
+    if (isset($data['head'])):
+        echo $data['head'];
+    endif;
+?>
+
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title><?php echo $data['title'] ?></title>
         <!-- <link rel="shortcut icon" href="./assets/img/liste-de-taches.png" author="smashingstocks" /> -->
+        <link rel="preload" href="/public/assets/css/style.css" as="style">
         <link rel="stylesheet" href="/public/assets/css/style.css" />
     </head>
     <body class="bg-(--bg-primary) font-[Roboto] text-base text-(--font-color)">
@@ -30,6 +39,8 @@
                         alt="Accueil"
                         id="logo"
                         class="h-9"
+                        height="36"
+                        width="65"
                     />
                 </a>
                 <div
@@ -116,7 +127,7 @@
                 >Mentions légales</a
             >
         </footer>
-        <script src="<?php echo BASE_URL . '/public/assets/js/menu.js' ?>"></script>
+        <script src="<?php echo BASE_URL . '/public/assets/js/menu.js' ?>" defer></script>
          <?php if (isset($data['scripts'])) {
                  echo $data['scripts'];
              }

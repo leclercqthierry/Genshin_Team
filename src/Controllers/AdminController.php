@@ -5,7 +5,7 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Utils\ErrorHandler;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -18,11 +18,7 @@ use Psr\Log\LoggerInterface;
  */
 class AdminController extends AbstractController
 {
-    /** @var LoggerInterface Logger utilisé pour la gestion des erreurs */
-    private LoggerInterface $logger;
-
-    /** @var ErrorPresenterInterface Présentateur des erreurs utilisateurs */
-    private ErrorPresenterInterface $errorPresenter;
+    use ExceptionHandlerTrait;
 
     /** @var SessionManager Gestionnaire de session utilisateur */
     protected SessionManager $session;
@@ -60,6 +56,9 @@ class AdminController extends AbstractController
         $this->handleRequest();
     }
 
+    public function setCurrentRoute(string $route): void
+    {}
+
     /**
      * Traite la requête entrante, vérifie les autorisations, et affiche la vue appropriée.
      * En cas d'erreur, une exception est loggée et une réponse utilisateur est rendue.
@@ -68,31 +67,31 @@ class AdminController extends AbstractController
      */
     protected function handleRequest(): void
     {
-        try {
-            $user   = $this->session->get('user');    // Récupère l'utilisateur courant
-            $idRole = $this->session->get('id_role'); // Récupère le rôle (1 = admin)
+        $user   = $this->session->get('user');    // Récupère l'utilisateur courant
+        $idRole = $this->session->get('id_role'); // Récupère le rôle (1 = admin)
 
-            // Vérifie que l'utilisateur est bien connecté et a un rôle d'administrateur
-            if ($user === null || $idRole !== 1) {
-                http_response_code(403); // Interdit l'accès
+        // Vérifie que l'utilisateur est bien connecté et a un rôle d'administrateur
+        if ($user === null || $idRole !== 1) {
+            http_response_code(403); // Interdit l'accès
 
-                $this->addData('title', 'Accès interdit');
-                $this->addData('content', '<div role="alert">Vous n\'avez pas accès à cette page.</div>');
+            $this->addData('title', 'Accès interdit');
+            $this->addData('content', '<div role="alert">Vous n\'avez pas accès à cette page.</div>');
+            try {
                 $this->renderDefault();
-                return;
+            } catch (\Throwable $e) {
+                $this->handleException($e);
             }
 
-            // Utilisateur autorisé : affiche le contenu admin
-            $this->addData('title', 'Panneau d\'administration');
+            return;
+        }
+
+        // Utilisateur autorisé : affiche le contenu admin
+        $this->addData('title', 'Panneau d\'administration');
+        try {
             $this->addData('content', $this->renderer->render('admin'));
             $this->renderDefault();
         } catch (\Throwable $e) {
-            // Capture et log toute exception levée dans la logique du contrôleur
-            $handler = new ErrorHandler($this->logger);
-            $payload = $handler->handle($e);
-
-            // Présente l'erreur via le système d'affichage prévu
-            $this->errorPresenter->present($payload);
+            $this->handleException($e);
         }
     }
 }

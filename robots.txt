@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /src/Views/404.php
+Disallow: /src/Views/admin.php

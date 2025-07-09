@@ -7,7 +7,9 @@ use GenshinTeam\Connexion\Database;
 use GenshinTeam\Models\Obtaining;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
+use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,6 +24,7 @@ use Psr\Log\LoggerInterface;
 
 class ObtainingController extends AbstractCrudController
 {
+    use ExceptionHandlerTrait;
     /**
      * Constructeur principal du contrôleur.
      *
@@ -78,6 +81,57 @@ class ObtainingController extends AbstractCrudController
         return 'delete-obtaining';
     }
 
+    /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
+     * Valide le champ "moyen d'obtention".
+     *
+     * @param string $obtaining
+     * @return Validator
+     */
+    private function validateObtaining(string $obtaining): Validator
+    {
+        $validator = new Validator();
+
+        // Champ requis
+        $validator->validateRequired('obtaining', $obtaining, "Le champ moyen d'obtention est obligatoire.");
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Longueur minimale
+        $validator->validateMinLength('obtaining', $obtaining, 4, " 4 caractères minimum.");
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Pas de caractères spéciaux sauf % et +
+        $validator->validatePattern(
+            'obtaining',
+            $obtaining,
+            '/^[\p{L}\s]+$/u',
+            "Lettres (et accent) et espaces uniquement."
+
+        );
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Unicité (si pas d'erreur précédente)
+        if ($this->model->existsByName($obtaining)) {
+            $validator->setError('obtaining', "Ce moyen d'obtention existe déjà.");
+        }
+
+        return $validator;
+    }
+
     // --- AJOUT ---
 
     /**
@@ -85,12 +139,24 @@ class ObtainingController extends AbstractCrudController
      */
     protected function handleAdd(): void
     {
-        $this->handleCrudAdd(
-            'obtaining',
-            fn(string $v) => trim($v) === '',
-            fn(string $v) => $this->processAdd($v),
-            fn()          => $this->showAddForm()
-        );
+        try {
+            $this->handleCrudAdd(
+                'obtaining',
+                function (string $v) {
+                    $validator = $this->validateObtaining($v);
+                    if ($validator->hasErrors()) {
+                        $this->addError('obtaining', $validator->getErrors()['obtaining'] ?? 'Erreur de validation');
+                        $this->setOld(['obtaining' => $v]);
+                        $this->showAddForm();
+                        return;
+                    }
+                    $this->processAdd($v);
+                },
+                fn() => $this->showAddForm()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -130,6 +196,10 @@ class ObtainingController extends AbstractCrudController
             'mode'   => 'add',
             'isEdit' => false,
         ]));
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+        ');
+
         $this->renderDefault();
     }
 
@@ -143,14 +213,26 @@ class ObtainingController extends AbstractCrudController
      */
     protected function handleEdit(): void
     {
-        $this->handleCrudEdit(
-            'obtaining',
-            fn(string $v)          => trim($v) === '',
-            fn(int $id, string $v) => $this->processEdit($id, $v),
-            fn(int $id)            => $this->showEditForm($id),
-            fn()                   => $this->showEditSelectForm(),
-            fn()                   => $this->getEditId()
-        );
+        try {
+            $this->handleCrudEdit(
+                'obtaining',
+                function (int $id, string $v) {
+                    $validator = $this->validateObtaining($v);
+                    if ($validator->hasErrors()) {
+                        $this->addError('obtaining', $validator->getErrors()['obtaining'] ?? 'Erreur de validation');
+                        $this->setOld(['obtaining' => $v]);
+                        $this->showEditForm($id);
+                        return;
+                    }
+                    $this->processEdit($id, $v);
+                },
+                fn(int $id) => $this->showEditForm($id),
+                fn()        => $this->showEditSelectForm(),
+                fn()        => $this->getEditId()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -251,6 +333,10 @@ class ObtainingController extends AbstractCrudController
             'isEdit' => true,
             'id'     => $id,
         ]));
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+        ');
+
         $this->renderDefault();
     }
 
@@ -267,12 +353,16 @@ class ObtainingController extends AbstractCrudController
      */
     protected function handleDelete(): void
     {
-        $this->handleCrudDelete(
-            fn()        => $this->getDeleteId(),
-            fn(int $id) => $this->processDelete($id),
-            fn()        => $this->showDeleteSelectForm(),
-            fn(int $id) => $this->showDeleteConfirmForm($id)
-        );
+        try {
+            $this->handleCrudDelete(
+                fn()        => $this->getDeleteId(),
+                fn(int $id) => $this->processDelete($id),
+                fn()        => $this->showDeleteSelectForm(),
+                fn(int $id) => $this->showDeleteConfirmForm($id)
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -280,9 +370,9 @@ class ObtainingController extends AbstractCrudController
      *
      * @return int|false L'identifiant valide ou false s'il est invalide.
      */
-    private function getDeleteId(): int | false
+    protected function getDeleteId(): int | false
     {
-        $rawId = $_POST['delete_id'];
+        $rawId = $_POST['delete_id'] ?? null;
         return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
@@ -376,12 +466,16 @@ class ObtainingController extends AbstractCrudController
      */
     protected function showList(): void
     {
-        $all = $this->model->getAll();
+        try {
+            $all = $this->model->getAll();
 
-        $this->addData('title', 'Liste des moyens d\'obtention');
-        $this->addData('content', $this->renderer->render('obtaining/obtaining-list', [
-            'obtainings' => $all,
-        ]));
-        $this->renderDefault();
+            $this->addData('title', 'Liste des moyens d\'obtention');
+            $this->addData('content', $this->renderer->render('obtaining/obtaining-list', [
+                'obtainings' => $all,
+            ]));
+            $this->renderDefault();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 }

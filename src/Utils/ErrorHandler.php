@@ -59,7 +59,19 @@ class ErrorHandler
      */
     private function generateFriendlyMessage(Throwable $e): string
     {
-        return 'Une erreur est survenue, veuillez réessayer plus tard.';
+        if ($e instanceof \PDOException) {
+            $pdoType = PdoErrorType::tryFrom((string) $e->getCode()) ?? PdoErrorType::UNKNOWN;
+            return $pdoType->getMessage();
+        }
+
+        $genericType = match (true) {
+            $e instanceof \InvalidArgumentException => GenericErrorType::BAD_INPUT,
+            $e instanceof \LogicException => GenericErrorType::LOGIC_FAILURE,
+            $e instanceof \RuntimeException => GenericErrorType::SERVER_FAILURE,
+            default => GenericErrorType::UNEXPECTED,
+        };
+
+        return $genericType->getMessage();
     }
 
     /**

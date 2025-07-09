@@ -8,6 +8,12 @@ RUN apt-get update && apt-get install -y libxml2-dev libonig-dev \
 # Activer mod_rewrite d'Apache
 RUN a2enmod rewrite
 
+# Activer la mise en cache des ressources statiques (Expires)
+RUN a2enmod expires
+
+# Activer la compression GZIP des contenus textuels (Deflate)
+RUN a2enmod deflate
+
 RUN pecl install xdebug && docker-php-ext-enable xdebug
 
 EXPOSE 80

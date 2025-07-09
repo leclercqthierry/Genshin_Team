@@ -102,4 +102,13 @@ class LogoutController extends AbstractController
     {
         $this->handleRequest();
     }
+
+    /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
 }

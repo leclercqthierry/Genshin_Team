@@ -1,7 +1,7 @@
 <?php
 
 use GenshinTeam\Connexion\Database;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase\DatabaseTestCase;
 
 /**
  * Tests unitaires de la classe Database.
@@ -14,22 +14,8 @@ use PHPUnit\Framework\TestCase;
  *
  * @covers \GenshinTeam\Connexion\Database
  */
-class DatabaseTest extends TestCase
+class DatabaseTest extends DatabaseTestCase
 {
-    /**
-     * Configure une instance PDO SQLite en mémoire pour injection dans Database.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        /** @var \PDO $pdoMock */
-        $pdoMock = new PDO('sqlite::memory:');
-        $pdoMock->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-        Database::setInstance($pdoMock);
-    }
-
     /**
      * Teste que Database retourne toujours la même instance (Singleton).
      *
@@ -38,10 +24,10 @@ class DatabaseTest extends TestCase
     public function testSingletonInstance(): void
     {
         /** @var \PDO $instance1 */
-        $instance1 = Database::getInstance(exit:false, testing: true);
+        $instance1 = Database::getInstance(exit: false, testing: true);
 
         /** @var \PDO $instance2 */
-        $instance2 = Database::getInstance(exit:false, testing: true);
+        $instance2 = Database::getInstance(exit: false, testing: true);
 
         $this->assertSame($instance1, $instance2, 'L’instance doit respecter le pattern Singleton.');
         $this->assertInstanceOf(PDO::class, $instance1);
@@ -59,7 +45,7 @@ class DatabaseTest extends TestCase
         Database::setInstance($pdoMock);
 
         /** @var \PDO $instance */
-        $instance = Database::getInstance(exit:false, testing: true);
+        $instance = Database::getInstance(exit: false, testing: true);
 
         $this->assertSame($pdoMock, $instance);
     }
@@ -142,8 +128,8 @@ class DatabaseTest extends TestCase
         Database::setInstance(null);
         file_put_contents('.env.test', implode(PHP_EOL, [
             'MYSQL_DATABASE=test_db',
-            'MYSQL_USER=test_user',
-            'MYSQL_PASSWORD=test_pass',
+            'MYSQL_USER=Thierry',
+            'MYSQL_PASSWORD=Aubvu7k7',
             'PMA_HOST=',
         ]));
 
@@ -163,9 +149,9 @@ class DatabaseTest extends TestCase
         Database::setInstance(null);
         file_put_contents('.env.test', implode(PHP_EOL, [
             'MYSQL_DATABASE=test_db',
-            'MYSQL_USER=test_user',
+            'MYSQL_USER=Thierry',
             'MYSQL_PASSWORD=',
-            'PMA_HOST=localhost',
+            'PMA_HOST=mysql-container',
         ]));
 
         putenv('MYSQL_PASSWORD=');
@@ -175,4 +161,33 @@ class DatabaseTest extends TestCase
 
         Database::getInstance(testing: true);
     }
+
+    /**
+     * Teste l'accessibilité du constructeur privé de la classe Database
+     * en contournant son accessibilité via Reflection.
+     *
+     * Ce test vérifie que l'instanciation manuelle via Reflection fonctionne
+     * correctement même lorsque le constructeur est privé.
+     *
+     * @covers \GenshinTeam\Connexion\Database::__construct
+     * @return void
+     */
+    public function testPrivateConstructorCanBeInvoked(): void
+    {
+        $refClass = new ReflectionClass(Database::class);
+
+        // Instanciation sans passer par le constructeur
+        $instance = $refClass->newInstanceWithoutConstructor();
+
+        // Appel manuel du constructeur privé
+        $constructor = $refClass->getConstructor();
+        if ($constructor !== null) {
+            $constructor->setAccessible(true);
+            $constructor->invoke($instance);
+        }
+
+        // Assertion de type ou autre test logique
+        $this->assertInstanceOf(Database::class, $instance);
+    }
+
 }

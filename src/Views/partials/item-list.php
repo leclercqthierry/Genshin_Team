@@ -8,7 +8,7 @@
      */
 
 ?>
-<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">
+<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase text-center">
     <?php echo htmlspecialchars($title) ?>
 </h1>
 
@@ -24,7 +24,7 @@
             <?php echo htmlspecialchars((string) $row[$nameField]) ?>
         </span>
         <span class="text-xs text-(--bg-primary)">
-            ID:                                                                            <?php echo $row[$idField] ?>
+            ID:                                                                                           <?php echo $row[$idField] ?>
         </span>
     </li>
     <?php endforeach; ?>

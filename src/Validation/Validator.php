@@ -109,4 +109,17 @@ class Validator
     {
         return $this->errors;
     }
+
+    /**
+     * Enregistre un message d’erreur pour un champ spécifique.
+     *
+     * @param string $field   Le nom du champ concerné par l’erreur.
+     * @param string $message Le message d’erreur à associer.
+     *
+     * @return void
+     */
+    public function setError(string $field, string $message): void
+    {
+        $this->errors[$field] = $message;
+    }
 }

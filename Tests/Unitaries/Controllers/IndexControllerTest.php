@@ -120,4 +120,31 @@ class IndexControllerTest extends TestCase
 
         $controller->run();
     }
+
+    /**
+     * Vérifie que la méthode setCurrentRoute() est bien définie et exécutable,
+     * même si elle n'a aucun effet observable (implémentation vide).
+     *
+     * Ce test garantit que la classe implémente correctement la méthode abstraite
+     * héritée de AbstractController, et qu'elle peut être invoquée sans erreur.
+     *
+     * @return void
+     *
+     * @covers \GenshinTeam\Controllers\AdminController::setCurrentRoute
+     */
+    public function testSetCurrentRouteIsCallable(): void
+    {
+        $renderer  = new Renderer($this->viewPath);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session   = new SessionManager();
+
+        $controller = new IndexController($renderer, $logger, $presenter, $session);
+
+        // L'appel ne doit rien faire, mais il ne doit surtout pas planter
+        $controller->setCurrentRoute('index');
+
+        // Tu peux ajouter une assertion vide ou une ligne de vérification basique
+        $this->expectNotToPerformAssertions();
+    }
 }

@@ -5,7 +5,7 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Utils\ErrorHandler;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -20,19 +20,7 @@ use Psr\Log\LoggerInterface;
  */
 class IndexController extends AbstractController
 {
-    /**
-     * Logger PSR-3 utilisé pour enregistrer les erreurs ou informations système.
-     *
-     * @var LoggerInterface
-     */
-    private LoggerInterface $logger;
-
-    /**
-     * Présentateur d'erreurs destiné à afficher les erreurs à l'utilisateur final.
-     *
-     * @var ErrorPresenterInterface
-     */
-    private ErrorPresenterInterface $errorPresenter;
+    use ExceptionHandlerTrait;
 
     /**
      * Gestionnaire de session actif.
@@ -78,6 +66,15 @@ class IndexController extends AbstractController
     }
 
     /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
      * Traite la requête principale pour la page d'accueil.
      *
      * Cette méthode :
@@ -98,14 +95,13 @@ class IndexController extends AbstractController
             ? 'Bienvenue sur Genshin Team, ' . htmlspecialchars($user)
             : 'Bienvenue sur Genshin Team'
         );
+        $this->addData('head', '<meta name="description" content="Vous trouverez sur Genshin Team des équipes créés et partagées par la communauté pour vous faciliter la vie en jeu, ainsi que des fiches détaillées pour monter vos personnages favoris ainsi que leurs armes, leurs sets de prédilection, ainsi que leur(s) builds(s).">');
 
         try {
             $this->addData('content', $this->renderer->render('index'));
             $this->renderDefault();
         } catch (\Throwable $e) {
-            $handler = new ErrorHandler($this->logger);
-            $payload = $handler->handle($e);
-            $this->errorPresenter->present($payload);
+            $this->handleException($e);
         }
     }
 }

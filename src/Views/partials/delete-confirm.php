@@ -11,7 +11,7 @@
      * @var string $cancelUrl    URL pour le bouton "Annuler"
      */
 ?>
-<h2 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">
+<h2 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase text-center">
     <?php echo htmlspecialchars($title) ?>
 </h2>
 <div

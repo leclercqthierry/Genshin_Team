@@ -1,3 +1,25 @@
 RewriteEngine On
-RewriteRule ^public/assets/ - [L]
+# Ne pas router les fichiers existants (dont robots.txt)
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
 RewriteRule ^(.*)$ router.php [L,QSA]
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Polices
+  ExpiresByType font/ttf "access plus 1 year"
+
+  # Autres fichiers statiques
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml
+  AddOutputFilterByType DEFLATE text/css text/javascript application/javascript application/json
+  AddOutputFilterByType DEFLATE font/ttf
+</IfModule>

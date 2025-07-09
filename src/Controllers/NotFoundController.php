@@ -5,7 +5,7 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Utils\ErrorHandler;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -20,19 +20,7 @@ use Psr\Log\LoggerInterface;
  */
 class NotFoundController extends AbstractController
 {
-    /**
-     * Logger PSR-3 pour tracer les éventuelles erreurs.
-     *
-     * @var LoggerInterface
-     */
-    private LoggerInterface $logger;
-
-    /**
-     * Composant responsable de l'affichage des erreurs à l'utilisateur.
-     *
-     * @var ErrorPresenterInterface
-     */
-    private ErrorPresenterInterface $errorPresenter;
+    use ExceptionHandlerTrait;
 
     /**
      * Gestionnaire de session, redéclaré ici pour manipulation locale.
@@ -74,6 +62,15 @@ class NotFoundController extends AbstractController
     }
 
     /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
      * Génère et affiche la page 404.
      *
      * Récupère les données nécessaires, démarre la session si besoin,
@@ -84,16 +81,14 @@ class NotFoundController extends AbstractController
      */
     protected function handleRequest(): void
     {
-        try {
-            $this->session->start();
+        $this->session->start();
+        $this->addData('title', '404 - Page non trouvée');
 
-            $this->addData('title', '404 - Page non trouvée');
+        try {
             $this->addData('content', $this->renderer->render('404'));
             $this->renderDefault();
         } catch (\Throwable $e) {
-            $handler = new ErrorHandler($this->logger);
-            $payload = $handler->handle($e);
-            $this->errorPresenter->present($payload);
+            $this->handleException($e);
         }
     }
 }

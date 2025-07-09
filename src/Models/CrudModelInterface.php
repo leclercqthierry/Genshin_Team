@@ -51,4 +51,12 @@ interface CrudModelInterface
      * @return bool True si la suppression a réussi
      */
     public function delete(int $id): bool;
+
+    /**
+     * Vérifie si une entrée existe en base selon un nom donné.
+     *
+     * @param string $name Le nom à rechercher.
+     * @return bool `true` si une entrée existe, `false` sinon.
+     */
+    public function existsByName(string $name): bool;
 }

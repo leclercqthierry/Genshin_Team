@@ -1,92 +1,22 @@
 <?php
 declare (strict_types = 1);
 
+use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\FarmDaysController;
 use GenshinTeam\Models\FarmDays;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
-use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Tests\TestCase\FarmDaysControllerTestCase;
 
 /**
  * @covers \GenshinTeam\Controllers\FarmDaysController
  *
  * Classe de tests unitaires pour le contrôleur FarmDaysController.
  */
-class FarmDaysControllerTest extends TestCase
+class FarmDaysControllerTest extends FarmDaysControllerTestCase
 {
-    /** @var string Chemin temporaire vers les vues de test */
-    private string $viewPath;
-
-    /**
-     * Prépare l'environnement de test en créant des vues minimales temporaires.
-     */
-    protected function setUp(): void
-    {
-        $this->viewPath = sys_get_temp_dir() . '/views_' . uniqid();
-        @mkdir($this->viewPath, 0777, true);
-        @mkdir($this->viewPath . '/farm-days', 0777, true);
-        @mkdir($this->viewPath . '/partials', 0777, true);
-
-        @mkdir($this->viewPath . '/templates', 0777, true);
-
-        // Création de vues minimales pour simuler les rendus attendus
-        file_put_contents(
-            $this->viewPath . '/farm-days/add-farm-days.php',
-            // Affiche le bouton Modifier si mode édition, les erreurs globales et day, puis le formulaire
-            '<?php if (isset($mode) && $mode === "edit") { echo "<button>Modifier</button>"; } ?><?php if (!empty($errors["global"])) echo $errors["global"]; ?><?php if (!empty($errors["day"])) echo $errors["day"]; ?><form>add</form>'
-        );
-        file_put_contents(
-            $this->viewPath . '/partials/select-item.php',
-            // Affiche les erreurs globales puis le select
-            '<?php if (!empty($errors["global"])) echo $errors["global"]; ?><select>select</select>'
-        );
-        file_put_contents($this->viewPath . '/farm-days/delete-farm-days-confirm.php', '<form>delete</form>');
-        file_put_contents($this->viewPath . '/farm-days/farm-days-list.php', '<ul>list</ul>');
-        file_put_contents($this->viewPath . '/templates/default.php', '<html><?= $title ?? "" ?><?= $content ?? "" ?></html>');
-
-        // Génère un token CSRF valide pour tous les tests
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-    }
-
-    /**
-     * Nettoie l'environnement de test en supprimant les fichiers temporaires.
-     */
-    protected function tearDown(): void
-    {
-        @unlink($this->viewPath . '/farm-days/add-farm-days.php');
-        @unlink($this->viewPath . '/farm-days/delete-farm-days-confirm.php');
-        @unlink($this->viewPath . '/farm-days/farm-days-list.php');
-        @unlink($this->viewPath . '/templates/default.php');
-        @unlink($this->viewPath . '/partials/select-item.php');
-        @rmdir($this->viewPath . '/partials');
-        @rmdir($this->viewPath . '/farm-days');
-        @rmdir($this->viewPath . '/templates');
-        @rmdir($this->viewPath);
-    }
-
-    /**
-     * Instancie le contrôleur FarmDaysController avec des dépendances mockées.
-     *
-     * @param FarmDays $model   Modèle mocké FarmDays
-     * @param string   $route   Nom de la route à tester
-     * @return FarmDaysController
-     */
-    private function getController(FarmDays $model, string $route): FarmDaysController
-    {
-        $renderer  = new Renderer($this->viewPath);
-        $logger    = $this->createMock(LoggerInterface::class);
-        $presenter = $this->createMock(ErrorPresenterInterface::class);
-        $session   = new SessionManager();
-
-        $controller = new FarmDaysController($renderer, $logger, $presenter, $session, $model);
-        $controller->setCurrentRoute($route);
-        return $controller;
-    }
 
     /**
      * Vérifie l'ajout valide d'un jour de farm.
@@ -96,9 +26,9 @@ class FarmDaysControllerTest extends TestCase
         $model = $this->createMock(FarmDays::class);
         $model->expects($this->once())->method('add')->with('Lundi/Mardi')->willReturn(true);
 
-        $controller                = $this->getController($model, 'add-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['days']             = ['Lundi', 'Mardi'];
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('add-farm-days');
+        $this->preparePostRequest(['days' => ['Lundi', 'Mardi']]);
 
         ob_start();
         $controller->run();
@@ -116,16 +46,91 @@ class FarmDaysControllerTest extends TestCase
         $model = $this->createMock(FarmDays::class);
         $model->expects($this->once())->method('add')->with('Lundi/Mardi')->willReturn(false);
 
-        $controller                = $this->getController($model, 'add-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['days']             = ['Lundi', 'Mardi'];
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('add-farm-days');
+        $this->preparePostRequest(['days' => ['Lundi', 'Mardi']]);
 
         ob_start();
         $controller->run();
         $output = ob_get_clean();
 
         $this->assertIsString($output);
-        $this->assertStringContainsString('Erreur lors de l\'ajout.', $output);
+        $this->assertSame(
+            "Erreur lors de l'ajout.",
+            $controller->getErrors()['global'] ?? null
+        );
+
+        $this->assertStringContainsString('<form>add</form>', $output);
+    }
+
+    /**
+     * Vérifie que la soumission d'un jour invalide en mode ajout
+     * affiche un message d'erreur indiquant le jour incorrect.
+     */
+    public function testHandleAddInvalidDaySetsFieldError(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->expects($this->never())->method('add');
+
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('add-farm-days');
+
+        $this->preparePostRequest(['days' => ['Lundi', 'Funday']]);
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        // On vérifie que l'output est bien généré
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<form>add</form>', $output);
+
+        // Et maintenant, on vérifie que l’erreur a bien été enregistrée sous la clé "days"
+        $errors = $controller->getErrors();
+        $this->assertArrayHasKey('days', $errors);
+        $this->assertStringContainsString('Jour invalide : Funday', $errors['days']);
+    }
+
+    /**
+     * Teste que le bloc `catch` de la méthode `handleAdd()` intercepte bien les exceptions.
+     *
+     * Ce test garantit que, lorsqu'une exception est levée depuis `handleCrudAdd()`, elle est
+     * correctement capturée par le bloc `catch (\Throwable $e)` de `handleAdd()`.
+     * Une sous-classe anonyme de `StatController` redéfinit `handleCrudAdd()` pour y injecter
+     * une exception déclenchée volontairement.
+     *
+     * Aucune assertion n'est nécessaire ici, car l'objectif est de couvrir le bloc `catch` et
+     * de s'assurer que l'exception ne provoque pas d'erreur fatale. Ce test aide à améliorer
+     * la couverture du code de gestion des erreurs.
+     *
+     * @covers ::handleAdd
+     * @return void
+     */
+    public function testHandleAddCoversOuterCatch(): void
+    {
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+        $model          = new FarmDays(Database::getInstance(), $logger);
+
+        $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
+        {
+            public function testableHandleAdd(): void
+            {
+                $this->handleAdd();
+            }
+
+            protected function handleCrudAdd(string $a, callable $b, callable $c): void
+            {
+                throw new \RuntimeException('Erreur simulée directe dans handleCrudAdd');
+            }
+        };
+
+        $controller->testableHandleAdd();
+
+        $this->expectNotToPerformAssertions();
+
     }
 
     /**
@@ -137,10 +142,13 @@ class FarmDaysControllerTest extends TestCase
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
         $model->expects($this->once())->method('update')->with(1, 'Lundi/Mardi')->willReturn(true);
 
-        $controller                = $this->getController($model, 'edit-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['days']             = ['Lundi', 'Mardi'];
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('edit-farm-days');
+
+        $this->preparePostRequest([
+            'days'    => ['Lundi', 'Mardi'],
+            'edit_id' => 1,
+        ]);
 
         ob_start();
         $controller->run();
@@ -151,207 +159,74 @@ class FarmDaysControllerTest extends TestCase
     }
 
     /**
-     * Vérifie la suppression valide d'un jour de farm.
+     * Vérifie que l'édition d'une entité avec des jours vides
+     * entraîne un message d'erreur demandant au moins un jour sélectionné.
      */
-    public function testHandleDeleteValid(): void
+    public function testHandleEditEmptyDaysShowsValidationError(): void
     {
         $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-        $model->expects($this->once())->method('delete')->with(1)->willReturn(true);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => '']);
 
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('edit-farm-days');
 
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('supprimé', $output);
-    }
-
-    /**
-     * Vérifie la gestion d'un échec lors de la suppression.
-     */
-    public function testHandleDeleteFailure(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
-        $model->expects($this->once())->method('delete')->with(1)->willReturn(false);
-
-        $controller                = $this->getController($model, 'delete-farm-days');
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('Erreur lors de la suppression.', $output);
-    }
-
-    /**
-     * Vérifie l'affichage de la liste des jours de farm.
-     */
-    public function testShowList(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('getAll')->willReturn([['id_farm_days' => 1, 'days' => 'Lundi']]);
-        $controller                = $this->getController($model, 'farm-days-list');
-        $_SERVER['REQUEST_METHOD'] = 'GET';
-
-        ob_start();
-        $controller->run();
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<ul>list</ul>', $output);
-    }
-
-    /**
-     * Teste l'affichage du formulaire de sélection pour l’édition.
-     *
-     * Ce test vérifie que la méthode privée showEditSelectForm :
-     * - Est accessible via la réflexion.
-     * - Produit une sortie HTML contenant un élément <select>.
-     *
-     * Le modèle est mocké pour retourner deux entrées fictives représentant des jours de farm.
-     *
-     * @return void
-     */
-    public function testShowEditSelectForm(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('getAll')->willReturn([
-            ['id_farm_days' => 1, 'days' => 'Lundi'],
-            ['id_farm_days' => 2, 'days' => 'Mardi'],
+        $this->preparePostRequest([
+            'days'    => [],
+            'edit_id' => 1,
         ]);
-        $controller = $this->getController($model, 'edit-farm-days');
 
         ob_start();
-        $reflection = new \ReflectionClass($controller);
-        $method     = $reflection->getMethod('showEditSelectForm');
-        $method->setAccessible(true);
-        $method->invoke($controller);
+        $controller->run();
         $output = ob_get_clean();
 
         $this->assertIsString($output);
-        $this->assertStringContainsString('<select>select</select>', $output);
+        $this->assertArrayHasKey('days', $controller->getErrors());
+        $this->assertSame(
+            'Veuillez sélectionner au moins un jour.',
+            $controller->getErrors()['days']
+        );
+
     }
 
     /**
-     * Teste l'affichage du formulaire d'édition pour un jour de farm spécifique.
+     * Teste que le bloc `catch` de la méthode `handleEdit()` intercepte bien les exceptions.
      *
-     * Ce test utilise un mock du modèle FarmDays pour retourner une entrée correspondant à l’ID 1.
-     * Il vérifie que :
-     * - La méthode privée showEditForm est correctement invoquée via réflexion.
-     * - Une sortie HTML est bien générée.
-     * - Le bouton "Modifier" est présent dans le rendu.
+     * Ce test vérifie que, lorsqu’une exception est levée depuis `handleCrudEdit()`, elle est
+     * correctement capturée par le bloc `catch (\Throwable $e)` présent dans `handleEdit()`.
+     * Une sous-classe anonyme de `FarmDaysController` redéfinit `handleCrudEdit()` pour y déclencher
+     * une exception volontairement, simulant ainsi un scénario d'erreur.
      *
+     * Ce test n'effectue aucune assertion fonctionnelle : son objectif est uniquement d'assurer
+     * que le bloc `catch` est bien exécuté et que l'exception ne provoque pas d'interruption,
+     * afin d'assurer une couverture correcte de la gestion d’erreur dans `handleEdit()`.
+     *
+     * @covers ::handleEdit
      * @return void
      */
-    public function testShowEditForm(): void
+    public function testHandleEditCoversOuterCatch(): void
     {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
-        $controller = $this->getController($model, 'edit-farm-days');
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+        $model          = new FarmDays(Database::getInstance(), $logger);
 
-        ob_start();
-        $reflection = new \ReflectionClass($controller);
-        $method     = $reflection->getMethod('showEditForm');
-        $method->setAccessible(true);
-        $method->invoke($controller, 1);
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<button>Modifier</button>', $output);
-    }
-
-    /**
-     * Teste l'affichage du formulaire de confirmation de suppression.
-     *
-     * Ce test utilise un mock du modèle FarmDays pour simuler le retour d’un enregistrement
-     * avec l’identifiant 1. Il vérifie que :
-     * - La méthode privée showDeleteConfirmForm peut être invoquée via réflexion.
-     * - Une sortie HTML est générée.
-     * - Cette sortie contient un formulaire de suppression comportant les balises attendues.
-     *
-     * @return void
-     */
-    public function testShowDeleteConfirmForm(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
-        $controller = $this->getController($model, 'delete-farm-days');
-
-        ob_start();
-        $reflection = new \ReflectionClass($controller);
-        $method     = $reflection->getMethod('showDeleteConfirmForm');
-        $method->setAccessible(true);
-        $method->invoke($controller, 1);
-        $output = ob_get_clean();
-
-        $this->assertIsString($output);
-        $this->assertStringContainsString('<form>delete</form>', $output);
-    }
-
-    /**
-     * Teste le comportement de showEditForm lorsque l'enregistrement est introuvable.
-     *
-     * Ce test simule une tentative d'édition avec un identifiant inexistant (42).
-     * Il vérifie que :
-     * - La méthode privée showEditForm est bien invoquée via la réflexion.
-     * - Le modèle retourne `null`, simulant l’absence de l’enregistrement.
-     * - La méthode showEditSelectForm est appelée à la place, via un proxy anonyme.
-     * - Une erreur globale est bien enregistrée pour signaler le problème.
-     *
-     * @return void
-     */
-    public function testShowEditFormNotFound(): void
-    {
-        $model = $this->createMock(FarmDays::class);
-        $model->method('get')->with(42)->willReturn(null); // Simule un ID inexistant
-        $controller = $this->getController($model, 'edit-farm-days');
-
-        // On va mocker showEditSelectForm pour vérifier qu'il est bien appelé
-        $wasCalled       = false;
-        $mock            = $this;
-        $controllerProxy = new class($controller, $wasCalled, $mock) extends FarmDaysController
+        $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
         {
-            public bool $wasCalled;
-            private TestCase $mock;
-
-            public function __construct(object $base, bool &$wasCalled, TestCase $mock)
+            public function testableHandleEdit(): void
             {
-                foreach (get_object_vars($base) as $k => $v) {
-                    $this->$k = $v;
-                }
-                $this->wasCalled = &$wasCalled;
-                $this->mock      = $mock;
+                $this->handleEdit();
             }
 
-            protected function showEditSelectForm(): void
+            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c, callable $d): void
             {
-                $this->wasCalled = true;
-            }
-
-            protected function renderDefault(): void
-            {
-                // Empêche l'affichage HTML parasite
+                throw new \RuntimeException('Erreur simulée directe dans handleCrudEdit');
             }
         };
 
-        $reflection = new \ReflectionClass($controllerProxy);
-        $method     = $reflection->getMethod('showEditForm');
-        $method->setAccessible(true);
-        $method->invoke($controllerProxy, 42);
+        $controller->testableHandleEdit();
 
-        $this->assertTrue($controllerProxy->wasCalled, 'showEditSelectForm doit être appelé si le record est introuvable');
-        $this->assertArrayHasKey('global', $controllerProxy->getErrors());
+        $this->expectNotToPerformAssertions();
     }
 
     /**
@@ -372,9 +247,9 @@ class FarmDaysControllerTest extends TestCase
         $model = $this->createMock(FarmDays::class);
         $model->method('update')->with(1, 'Lundi/Mardi')->willReturn(false);
 
-        $controller = $this->getController($model, 'edit-farm-days');
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('edit-farm-days');
 
-        // On prépare les jours à éditer
         $days = ['Lundi', 'Mardi'];
 
         // On utilise la réflexion pour accéder à la méthode privée
@@ -387,10 +262,133 @@ class FarmDaysControllerTest extends TestCase
         $method->invoke($controller, 1, $days);
         ob_end_clean();
 
-        // Vérifie qu'une erreur globale a été ajoutée
         $this->assertArrayHasKey('global', $controller->getErrors());
-        // Vérifie que les anciens jours sont bien conservés pour le pré-remplissage
         $this->assertEquals(['days' => $days], $controller->getOld());
+    }
+
+    /**
+     * Vérifie la suppression valide d'un jour de farm.
+     */
+    public function testHandleDeleteValid(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
+        $model->expects($this->once())->method('delete')->with(1)->willReturn(true);
+
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('delete-farm-days');
+
+        $this->preparePostRequest([
+            'delete_id'      => 1,
+            'confirm_delete' => 1,
+        ]);
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('supprimé', $output);
+    }
+
+    /**
+     * Vérifie la gestion d'un échec lors de la suppression.
+     */
+    public function testHandleDeleteFailure(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
+        $model->expects($this->once())->method('delete')->with(1)->willReturn(false);
+
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('delete-farm-days');
+
+        $this->preparePostRequest([
+            'delete_id'      => 1,
+            'confirm_delete' => 1,
+        ]);
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+
+        $this->assertArrayHasKey('global', $controller->getErrors());
+        $this->assertSame(
+            'Erreur lors de la suppression.',
+            $controller->getErrors()['global'] ?? null
+        );
+
+    }
+
+    /**
+     * Vérifie que le bloc `catch` de la méthode `handleDelete()` est effectivement exécuté
+     * lorsqu'une exception est levée depuis `handleCrudDelete()`.
+     *
+     * Ce test instancie une sous-classe anonyme de `StatController` dans laquelle
+     * la méthode `handleCrudDelete()` est volontairement redéfinie pour lancer une
+     * exception. Cela permet de s'assurer que le `catch (\Throwable $e)` dans
+     * `handleDelete()` est bien activé et donc couvert par l'outil de couverture de code.
+     *
+     * Ce test ne contient pas d'assertion sur le comportement de gestion d'erreur,
+     * mais garantit que l’exception est absorbée et que l’exécution ne plante pas.
+     *
+     * @covers ::handleDelete
+     */
+    public function testHandleDeleteCoversOuterCatch(): void
+    {
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+        $model          = new FarmDays(Database::getInstance(), $logger);
+
+        $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
+        {
+            public function testableHandleDelete(): void
+            {
+                $this->handleDelete();
+            }
+
+            protected function handleCrudDelete(callable $a, callable $b, callable $c, callable $d): void
+            {
+                throw new \RuntimeException('Erreur simulée directe dans handleCrudDelete');
+            }
+        };
+
+        $controller->testableHandleDelete();
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    /**
+     * Teste l'affichage du formulaire de confirmation de suppression.
+     *
+     * Ce test utilise un mock du modèle FarmDays pour simuler le retour d’un enregistrement
+     * avec l’identifiant 1. Il vérifie que :
+     * - La méthode privée showDeleteConfirmForm peut être invoquée via réflexion.
+     * - Une sortie HTML est générée.
+     * - Cette sortie contient un formulaire de suppression comportant les balises attendues.
+     *
+     * @return void
+     */
+    public function testShowDeleteConfirmForm(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('delete-farm-days');
+
+        ob_start();
+        $reflection = new \ReflectionClass($controller);
+        $method     = $reflection->getMethod('showDeleteConfirmForm');
+        $method->setAccessible(true);
+        $method->invoke($controller, 1);
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<form>confirm</form>', $output);
     }
 
     /**
@@ -407,7 +405,8 @@ class FarmDaysControllerTest extends TestCase
     {
         $model = $this->createMock(FarmDays::class);
         $model->method('get')->with(99)->willReturn(null); // Simule un ID inexistant
-        $controller = $this->getController($model, 'delete-farm-days');
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('delete-farm-days');
 
         $wasCalled       = false;
         $controllerProxy = new class($controller, $wasCalled) extends FarmDaysController
@@ -437,5 +436,74 @@ class FarmDaysControllerTest extends TestCase
 
         $this->assertTrue($controllerProxy->wasCalled, 'showDeleteSelectForm doit être appelé si le record est introuvable');
         $this->assertArrayHasKey('global', $controllerProxy->getErrors());
+    }
+
+    /**
+     * Vérifie l'affichage de la liste des jours de farm.
+     */
+    public function testShowList(): void
+    {
+        $model = $this->createMock(FarmDays::class);
+        $model->method('getAll')->willReturn([['id_farm_days' => 1, 'days' => 'Lundi']]);
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('farm-days-list');
+
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+
+        ob_start();
+        $controller->run();
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+        $this->assertStringContainsString('<ul>list</ul>', $output);
+    }
+
+    /**
+     * Teste que la méthode protégée `showList()` capture correctement les exceptions via son bloc `catch`.
+     *
+     * Ce test simule une situation où `model->getAll()` déclenche une exception. Une sous-classe anonyme
+     * du contrôleur est utilisée pour redéfinir le comportement du modèle ou injecter une dépendance factice
+     * qui lance une exception lors de l’appel à `getAll()`.
+     *
+     * L'objectif est de s'assurer que le bloc `catch (\Throwable $e)` est bien exécuté, que l'exception
+     * est absorbée sans remonter, et que la méthode `handleException()` est effectivement invoquée.
+     * Ce test vise principalement la couverture de la gestion d'erreur dans `showList()`.
+     *
+     * @covers ::showList
+     * @return void
+     */
+    public function testShowListCatchesThrowable(): void
+    {
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+
+        // Faux modèle qui lève une exception sur getAll()
+        $model = $this->createMock(FarmDays::class);
+        $model->method('getAll')
+            ->willThrowException(new \RuntimeException('Erreur simulée'));
+
+        // Contrôleur redéfini pour capturer handleException()
+        $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
+        {
+            public bool $caught = false;
+
+            public function testableShowList(): void
+            {
+                $this->showList();
+            }
+
+            protected function handleException(\Throwable $e): void
+            {
+                $this->caught = true;
+            }
+        };
+
+        // Appel via méthode publique wrapper
+        $controller->testableShowList();
+
+        // Vérifie que le catch a été exécuté
+        $this->assertTrue($controller->caught, 'Le bloc catch de showList() n’a pas été déclenché comme prévu');
     }
 }

@@ -16,7 +16,7 @@
      * } $old
      */
 ?>
-<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase">S'inscrire</h1>
+<h1 class="my-3.5 font-[RobotoCondensed] text-2xl font-bold uppercase text-center">S'inscrire</h1>
 
 <?php if (isset($errors['global'])): ?>
     <div role="alert" class="mb-4 ms-4 me-4 rounded border border-red-500 bg-red-100 p-4 text-red-700">
@@ -33,74 +33,86 @@
         Les champs précédés d'un astérisque rouge
         <sup class="text-red-500"><b>*</b></sup> sont obligatoires.
     </p>
-    <div class="form-group">
+    <div class="w-full">
         <label for="nickname">
             Pseudo <sup class="text-red-500"><b>*</b></sup>
         </label>
-        <input
-            type="text"
-            id="nickname"
-            name="nickname"
-            placeholder="user887"
-            class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
-            value="<?php echo htmlspecialchars($old['nickname'] ?? ''); ?>"
-            <?php echo isset($errors['nickname']) ? 'aria-describedby="error-nickname"' : ''; ?>
-        />
+        <div class="relative focus-within:arrow-indicator input-wrapper">
+            <input
+                type="text"
+                id="nickname"
+                name="nickname"
+                placeholder="user887"
+                class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
+                value="<?php echo htmlspecialchars($old['nickname'] ?? ''); ?>"
+                <?php echo isset($errors['nickname']) ? 'aria-describedby="error-nickname"' : ''; ?>
+            />
+            <p class="js-error mt-1 text-xs text-pink-300 min-h-4"></p>
+        </div>
         <?php if (isset($errors['nickname'])): ?>
             <p id="error-nickname" class="mt-1 text-xs text-pink-300">
                 <?php echo htmlspecialchars($errors['nickname']); ?>
             </p>
         <?php endif; ?>
     </div>
-    <div class="form-group">
+    <div class="w-full">
         <label for="email">
             Email <sup class="text-red-500"><b>*</b></sup>
         </label>
-        <input
-            type="email"
-            id="email"
-            name="email"
-            placeholder="ex: user887@gmail.com"
-            class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
-            value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>"
-            <?php echo isset($errors['email']) ? 'aria-describedby="error-email"' : ''; ?>
-        />
+        <div class="relative focus-within:arrow-indicator input-wrapper">
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="ex: user887@gmail.com"
+                class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
+                value="<?php echo htmlspecialchars($old['email'] ?? ''); ?>"
+                <?php echo isset($errors['email']) ? 'aria-describedby="error-email"' : ''; ?>
+            />
+            <p class="js-error mt-1 text-xs text-pink-300 min-h-4"></p>
+        </div>
         <?php if (isset($errors['email'])): ?>
             <p id="error-email" class="mt-1 text-xs text-pink-300">
                 <?php echo htmlspecialchars($errors['email']); ?>
             </p>
         <?php endif; ?>
     </div>
-    <div class="form-group">
+    <div class="w-full">
         <label for="password">
             Mot de passe <sup class="text-red-500"><b>*</b></sup>
         </label>
-        <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="********"
-            class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
-            <?php echo isset($errors['password']) ? 'aria-describedby="error-password"' : ''; ?>
-        />
+        <div class="relative focus-within:arrow-indicator input-wrapper">
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="********"
+                class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
+                <?php echo isset($errors['password']) ? 'aria-describedby="error-password"' : ''; ?>
+            />
+            <p class="js-error mt-1 text-xs text-pink-300 min-h-4"></p>
+        </div>
         <?php if (isset($errors['password'])): ?>
             <p id="error-password" class="mt-1 text-xs text-pink-300">
                 <?php echo htmlspecialchars($errors['password']); ?>
             </p>
         <?php endif; ?>
     </div>
-    <div class="form-group">
+    <div class="w-full">
         <label for="confirm-password">
             Confirmez votre mot de passe <sup class="text-red-500"><b>*</b></sup>
         </label>
-        <input
-            type="password"
-            id="confirm-password"
-            name="confirm-password"
-            placeholder="********"
-            class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
-            <?php echo isset($errors['confirm-password']) ? 'aria-describedby="error-confirm-password"' : ''; ?>
-        />
+        <div class="relative focus-within:arrow-indicator input-wrapper">
+            <input
+                type="password"
+                id="confirm-password"
+                name="confirm-password"
+                placeholder="********"
+                class="h-8 w-full rounded-[7px] border-0 bg-(--font-color) px-2.5 py-0 text-black placeholder:text-gray-600"
+                <?php echo isset($errors['confirm-password']) ? 'aria-describedby="error-confirm-password"' : ''; ?>
+            />
+            <p class="js-error mt-1 text-xs text-pink-300 min-h-4"></p>
+        </div>
         <?php if (isset($errors['confirm-password'])): ?>
             <p id="error-confirm-password" class="mt-1 text-xs text-pink-300">
                 <?php echo htmlspecialchars($errors['confirm-password']); ?>

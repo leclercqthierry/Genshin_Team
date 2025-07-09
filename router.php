@@ -12,13 +12,14 @@ use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorHandler;
 use GenshinTeam\Utils\ErrorPresenter;
 use GenshinTeam\Utils\NullErrorPresenter;
+use Monolog\Handler\StreamHandler;
 use Psr\Log\LogLevel;
 
 // Instancie le logger PSR-3 (ici, Monolog)
 $logger = new \Monolog\Logger('app');
-$logger->pushHandler(new \Monolog\Handler\StreamHandler(
+$logger->pushHandler(new StreamHandler(
     PROJECT_ROOT . '/logs/error.log',
-    \Psr\Log\LogLevel::ERROR
+    LogLevel::ERROR
 ));
 
 // Instancie le presenter d’erreur (NullErrorPresenter pour les tests, ErrorPresenter sinon)
@@ -47,24 +48,37 @@ $farmDayModel = new FarmDays(Database::getInstance(), $logger);
 // Création et configuration du routeur
 $router = new Router($logger, $errorPresenter, $session);
 
-$router->addRoute('index', 'IndexController'); // En cas de clic sur le logo
-$router->addRoute('', 'IndexController');
-$router->addRoute('login', 'LoginController');
-$router->addRoute('register', 'RegisterController');
-$router->addRoute('logout', 'LogoutController');
-$router->addRoute('admin', 'AdminController');
-$router->addRoute('add-farm-days', 'FarmDaysController');
-$router->addRoute('edit-farm-days', 'FarmDaysController');
-$router->addRoute('delete-farm-days', 'FarmDaysController');
-$router->addRoute('farm-days-list', 'FarmDaysController');
-$router->addRoute('add-stat', 'StatController');
-$router->addRoute('edit-stat', 'StatController');
-$router->addRoute('delete-stat', 'StatController');
-$router->addRoute('stats-list', 'StatController');
-$router->addRoute('add-obtaining', 'ObtainingController');
-$router->addRoute('edit-obtaining', 'ObtainingController');
-$router->addRoute('delete-obtaining', 'ObtainingController');
-$router->addRoute('obtaining-list', 'ObtainingController');
+$routes = [
+    'index'            => 'IndexController',
+    ''                 => 'IndexController',
+    'login'            => 'LoginController',
+    'forgot-password'  => 'ForgotPasswordController',
+    'register'         => 'RegisterController',
+    'logout'           => 'LogoutController',
+    'admin'            => 'AdminController',
+
+    // FarmDays
+    'add-farm-days'    => 'FarmDaysController',
+    'edit-farm-days'   => 'FarmDaysController',
+    'delete-farm-days' => 'FarmDaysController',
+    'farm-days-list'   => 'FarmDaysController',
+
+    // Stats
+    'add-stat'         => 'StatController',
+    'edit-stat'        => 'StatController',
+    'delete-stat'      => 'StatController',
+    'stats-list'       => 'StatController',
+
+    // Obtaining
+    'add-obtaining'    => 'ObtainingController',
+    'edit-obtaining'   => 'ObtainingController',
+    'delete-obtaining' => 'ObtainingController',
+    'obtaining-list'   => 'ObtainingController',
+];
+
+foreach ($routes as $path => $controller) {
+    $router->addRoute($path, $controller);
+}
 
 // Gestion globale des erreurs
 try {

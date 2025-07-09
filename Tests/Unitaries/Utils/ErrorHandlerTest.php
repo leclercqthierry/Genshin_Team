@@ -3,6 +3,8 @@ declare (strict_types = 1);
 
 use GenshinTeam\Utils\ErrorHandler;
 use GenshinTeam\Utils\ErrorPayload;
+use GenshinTeam\Utils\GenericErrorType;
+use GenshinTeam\Utils\PdoErrorType;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -38,7 +40,11 @@ class ErrorHandlerTest extends TestCase
         $payload = $handler->handle($exception);
 
         $this->assertInstanceOf(ErrorPayload::class, $payload);
-        $this->assertSame('Une erreur est survenue, veuillez réessayer plus tard.', $payload->getMessage());
+        $this->assertSame(
+            GenericErrorType::UNEXPECTED->getMessage(),
+            $payload->getMessage()
+        );
+
         $this->assertSame(500, $payload->getStatusCode());
     }
 
@@ -61,8 +67,48 @@ class ErrorHandlerTest extends TestCase
         $payload = $handler->handle($notFound);
 
         $this->assertInstanceOf(ErrorPayload::class, $payload);
-        // Si ton ErrorHandler mappe différemment certains types d'exception, adapte ici
-        $this->assertSame('Une erreur est survenue, veuillez réessayer plus tard.', $payload->getMessage());
+        $this->assertSame(
+            GenericErrorType::UNEXPECTED->getMessage(),
+            $payload->getMessage()
+        );
+        $this->assertSame(500, $payload->getStatusCode());
+    }
+
+    /**
+     * Vérifie que le gestionnaire d’erreurs transforme correctement une exception PDO en payload utilisateur compréhensible.
+     *
+     * Ce test simule une exception de type \PDOException avec un code SQLSTATE 23000 (violation de contrainte d’intégrité),
+     * et s’assure que le logger est bien invoqué avec les bons paramètres.
+     *
+     * Il valide que le message retourné dans le payload correspond à celui mappé par PdoErrorType,
+     * que le code HTTP retourné est bien 500, et que le payload est bien une instance de ErrorPayload.
+     *
+     * @return void
+     */
+    public function testHandleReturnsPdoFriendlyMessage(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+
+        $pdoException = new \PDOException('Erreur PDO', (int) '23000'); // Simule une erreur d’intégrité (par exemple)
+
+        $logger->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->equalTo('Erreur PDO'),
+                $this->arrayHasKey('exception')
+            );
+
+        $handler = new ErrorHandler($logger);
+        $payload = $handler->handle($pdoException);
+
+        $this->assertInstanceOf(ErrorPayload::class, $payload);
+
+        // Ce message dépend de ce que retourne PdoErrorType::from('23000')->getMessage()
+        $this->assertSame(
+            PdoErrorType::from('23000')->getMessage(),
+            $payload->getMessage()
+        );
+
         $this->assertSame(500, $payload->getStatusCode());
     }
 }

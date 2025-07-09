@@ -7,7 +7,10 @@ use GenshinTeam\Connexion\Database;
 use GenshinTeam\Models\FarmDays;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
+use GenshinTeam\Traits\HandleFormValidation;
 use GenshinTeam\Utils\ErrorPresenterInterface;
+use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -21,6 +24,9 @@ use Psr\Log\LoggerInterface;
  */
 class FarmDaysController extends AbstractCrudController
 {
+
+    use HandleFormValidation;
+    use ExceptionHandlerTrait;
     /**
      * Constructeur principal du contrôleur.
      *
@@ -78,19 +84,59 @@ class FarmDaysController extends AbstractCrudController
     }
 
     /**
+     * Valide la sélection des jours de farm.
+     *
+     * @param array<int, string> $days
+     * @return Validator
+     */
+    private function validateFarmDays(array $days): Validator
+    {
+        $validator = new Validator();
+
+        // Vérifie qu'au moins un jour est sélectionné
+        if (empty($days)) {
+            $validator->validateRequired('days', null, "Veuillez sélectionner au moins un jour.");
+        }
+
+        // Vérifie que chaque jour est valide
+        $validDays = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+        foreach ($days as $day) {
+            if (! in_array(mb_strtolower($day), $validDays, true)) {
+                $validator->validatePattern('days', $day, '/^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)$/i', "Jour invalide : $day");
+            }
+        }
+
+        return $validator;
+    }
+
+    /**
      * Gère l'ajout d'un ou plusieurs jours de farm via POST.
      */
     protected function handleAdd(): void
     {
-        $this->handleCrudAdd(
-            'days',
-            fn($v) => empty($v) || ! is_array($v),
-            fn($v) => $this->processAdd(array_map(
-                fn($item): string => is_scalar($item) || $item === null ? (string) $item : '',
-                is_array($v) ? array_values($v) : []
-            )),
-            fn()   => $this->showAddForm()
-        );
+        try {
+            $this->handleCrudAdd(
+                'days',
+                function ($v) {
+                    $days = is_array($v) ? array_values($v) : [];
+
+                    // Validation métier
+                    /** @var array<int, string> $days */
+                    $validator = $this->validateFarmDays($days);
+                    if ($validator->hasErrors()) {
+                        $this->addError('days', $validator->getErrors()['days'] ?? 'Erreur de validation');
+                        $this->setOld(['days' => $v]);
+                        $this->showAddForm();
+                        return;
+                    }
+                    // Si la validation est OK, on traite l'ajout
+                    $this->processAdd($days);
+                },
+                fn() => $this->showAddForm()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -139,20 +185,32 @@ class FarmDaysController extends AbstractCrudController
      */
     protected function handleEdit(): void
     {
-        $this->handleCrudEdit(
-            'days',
-            fn($v)      => empty($v) || ! is_array($v),
-            fn($id, $v) => $this->processEdit(
-                is_numeric($id) ? (int) $id : 0,
-                array_map(
-                    fn($item): string => is_scalar($item) || $item === null ? (string) $item : '',
-                    is_array($v) ? array_values($v) : []
-                )
-            ),
-            fn($id)     => $this->showEditForm(is_numeric($id) ? (int) $id : 0),
-            fn()        => $this->showEditSelectForm(),
-            fn()        => $this->getEditId()
-        );
+        try {
+            $this->handleCrudEdit(
+                'days',
+                function ($id, $v) {
+                    $days = is_array($v) ? array_values($v) : [];
+
+                    // Validation métier
+                    /** @var array<int, string> $days */
+                    $validator = $this->validateFarmDays($days);
+                    if (! $this->handleValidationIfError('days', $v, $validator, 'days', fn() => $this->showEditForm(is_numeric($id) ? (int) $id : 0))) {
+                        return;
+                    }
+
+                    // Si la validation est OK, on traite l'édition
+                    $this->processEdit(
+                        is_numeric($id) ? (int) $id : 0,
+                        $days
+                    );
+                },
+                fn($id) => $this->showEditForm(is_numeric($id) ? (int) $id : 0),
+                fn()    => $this->showEditSelectForm(),
+                fn()    => $this->getEditId()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     private function getEditId(): int | false
@@ -253,12 +311,16 @@ class FarmDaysController extends AbstractCrudController
      */
     protected function handleDelete(): void
     {
-        $this->handleCrudDelete(
-            fn()    => $this->getDeleteId(),
-            fn($id) => $this->processDelete(is_numeric($id) ? (int) $id : 0),
-            fn()    => $this->showDeleteSelectForm(),
-            fn($id) => $this->showDeleteConfirmForm(is_numeric($id) ? (int) $id : 0)
-        );
+        try {
+            $this->handleCrudDelete(
+                fn()    => $this->getDeleteId(),
+                fn($id) => $this->processDelete(is_numeric($id) ? (int) $id : 0),
+                fn()    => $this->showDeleteSelectForm(),
+                fn($id) => $this->showDeleteConfirmForm(is_numeric($id) ? (int) $id : 0)
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -348,16 +410,19 @@ class FarmDaysController extends AbstractCrudController
      */
     protected function showList(): void
     {
-        /** @var list<array{id_farm_days: int, days: string}> $all */
-        $all = $this->model->getAll();
+        try {
+            /** @var list<array{id_farm_days: int, days: string}> $all */
+            $all = $this->model->getAll();
 
-        $this->addData('title', 'Liste des jours de farm');
+            $this->addData('title', 'Liste des jours de farm');
 
-        $this->addData('content', $this->renderer->render('farm-days/farm-days-list', [
-            'farmDays' => $all,
-        ]));
-
-        $this->renderDefault();
+            $this->addData('content', $this->renderer->render('farm-days/farm-days-list', [
+                'farmDays' => $all,
+            ]));
+            $this->renderDefault();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**

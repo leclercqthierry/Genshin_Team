@@ -7,7 +7,9 @@ use GenshinTeam\Connexion\Database;
 use GenshinTeam\Models\Stat;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
+use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,6 +24,7 @@ use Psr\Log\LoggerInterface;
 
 class StatController extends AbstractCrudController
 {
+    use ExceptionHandlerTrait;
     /**
      * Constructeur principal du contrôleur.
      *
@@ -78,6 +81,56 @@ class StatController extends AbstractCrudController
         return 'delete-stat';
     }
 
+    /**
+     * Définit la route courante pour le contrôleur.
+     *
+     * @param string $route
+     * @return void
+     */
+    public function setCurrentRoute(string $route): void
+    {}
+
+    /**
+     * Valide le champ statistique.
+     *
+     * @param string $stat
+     * @return Validator
+     */
+    protected function validateStat(string $stat): Validator
+    {
+        $validator = new Validator();
+
+        // Champ requis
+        $validator->validateRequired('stat', $stat, "Le champ statistique est obligatoire.");
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Longueur minimale
+        $validator->validateMinLength('stat', $stat, 2, "La statistique doit avoir au moins 2 caractères.");
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Pas de caractères spéciaux sauf % et +
+        $validator->validatePattern(
+            'stat',
+            $stat,
+            '/^[\w\s%+]+$/u',
+            "Lettres, chiffres, espaces, % ou + uniquement."
+        );
+        if ($validator->hasErrors()) {
+            return $validator;
+        }
+
+        // Unicité (si pas d'erreur précédente)
+        if ($this->model->existsByName($stat)) {
+            $validator->setError('stat', "Cette statistique existe déjà.");
+        }
+
+        return $validator;
+    }
+
     // --- AJOUT ---
 
     /**
@@ -85,12 +138,24 @@ class StatController extends AbstractCrudController
      */
     protected function handleAdd(): void
     {
-        $this->handleCrudAdd(
-            'stat',
-            fn(string $v) => trim($v) === '',
-            fn(string $v) => $this->processAdd($v),
-            fn()          => $this->showAddForm()
-        );
+        try {
+            $this->handleCrudAdd(
+                'stat',
+                function (string $v) {
+                    $validator = $this->validateStat($v);
+                    if ($validator->hasErrors()) {
+                        $this->addError('stat', $validator->getErrors()['stat'] ?? 'Erreur de validation');
+                        $this->setOld(['stat' => $v]);
+                        $this->showAddForm();
+                        return;
+                    }
+                    $this->processAdd($v);
+                },
+                fn() => $this->showAddForm()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -130,6 +195,9 @@ class StatController extends AbstractCrudController
             'mode'   => 'add',
             'isEdit' => false,
         ]));
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+        ');
         $this->renderDefault();
     }
 
@@ -149,14 +217,26 @@ class StatController extends AbstractCrudController
      */
     protected function handleEdit(): void
     {
-        $this->handleCrudEdit(
-            'stat',
-            fn(string $v)          => trim($v) === '',
-            fn(int $id, string $v) => $this->processEdit($id, $v),
-            fn(int $id)            => $this->showEditForm($id),
-            fn()                   => $this->showEditSelectForm(),
-            fn()                   => $this->getEditId()
-        );
+        try {
+            $this->handleCrudEdit(
+                'stat',
+                function (int $id, string $v) {
+                    $validator = $this->validateStat($v);
+                    if ($validator->hasErrors()) {
+                        $this->addError('stat', $validator->getErrors()['stat'] ?? 'Erreur de validation');
+                        $this->setOld(['stat' => $v]);
+                        $this->showEditForm($id);
+                        return;
+                    }
+                    $this->processEdit($id, $v);
+                },
+                fn(int $id) => $this->showEditForm($id),
+                fn()        => $this->showEditSelectForm(),
+                fn()        => $this->getEditId()
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -257,6 +337,10 @@ class StatController extends AbstractCrudController
             'isEdit' => true,
             'id'     => $id,
         ]));
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+        ');
+
         $this->renderDefault();
     }
 
@@ -273,12 +357,16 @@ class StatController extends AbstractCrudController
      */
     protected function handleDelete(): void
     {
-        $this->handleCrudDelete(
-            fn()        => $this->getDeleteId(),
-            fn(int $id) => $this->processDelete($id),
-            fn()        => $this->showDeleteSelectForm(),
-            fn(int $id) => $this->showDeleteConfirmForm($id)
-        );
+        try {
+            $this->handleCrudDelete(
+                fn()        => $this->getDeleteId(),
+                fn(int $id) => $this->processDelete($id),
+                fn()        => $this->showDeleteSelectForm(),
+                fn(int $id) => $this->showDeleteConfirmForm($id)
+            );
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 
     /**
@@ -286,9 +374,9 @@ class StatController extends AbstractCrudController
      *
      * @return int|false L'identifiant valide ou false s'il est invalide.
      */
-    private function getDeleteId(): int | false
+    protected function getDeleteId(): int | false
     {
-        $rawId = $_POST['delete_id'];
+        $rawId = $_POST['delete_id'] ?? null;
         return filter_var($rawId, FILTER_VALIDATE_INT);
     }
 
@@ -382,12 +470,16 @@ class StatController extends AbstractCrudController
      */
     protected function showList(): void
     {
-        $all = $this->model->getAll();
+        try {
+            $all = $this->model->getAll();
 
-        $this->addData('title', 'Liste des statistiques');
-        $this->addData('content', $this->renderer->render('stats/stats-list', [
-            'stats' => $all,
-        ]));
-        $this->renderDefault();
+            $this->addData('title', 'Liste des statistiques');
+            $this->addData('content', $this->renderer->render('stats/stats-list', [
+                'stat' => $all,
+            ]));
+            $this->renderDefault();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
     }
 }

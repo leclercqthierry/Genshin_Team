@@ -1,6 +1,7 @@
 <?php
 declare (strict_types = 1);
 
+use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\StatController;
 use GenshinTeam\Models\Stat;
 use GenshinTeam\Renderer\Renderer;
@@ -8,876 +9,931 @@ use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Tests\TestCase\StatControllerTestCase;
 
 /**
- * Fournit une instance de StatController entièrement mockée pour les tests.
+ * Tests unitaires pour le contrôleur StatController.
  *
- * Cette méthode crée des mocks pour toutes les dépendances nécessaires :
- * - Renderer : pour simuler le rendu des vues
- * - LoggerInterface : pour intercepter la journalisation
- * - ErrorPresenterInterface : pour éviter les effets de bord
- * - SessionManager : pour émuler la session utilisateur
- * - Stat : le modèle métier, pouvant être surchargé via l’argument
+ * Ces tests couvrent tous les cas d'usage métier du contrôleur :
+ * - Ajout, édition, suppression de moyens d'obtention
+ * - Affichage des formulaires et des listes
+ * - Gestion des erreurs et des cas limites (ID inexistant, échec modèle, etc.)
  *
- * @param Stat|null $model Modèle stat personnalisé (ou mocké par défaut)
- * @param string    $route Nom de la route actuelle (ex : 'add-stat')
- *
- * @return StatController Instance prête à être testée
+ * Les mocks sont utilisés pour isoler le contrôleur de ses dépendances (modèle, renderer, session, etc.).
  */
-class StatControllerTest extends TestCase
+class StatControllerTest extends StatControllerTestCase
 {
-    /**
-     * Crée et retourne une instance mockée de StatController pour les tests.
-     *
-     * Cette méthode initialise tous les composants requis du contrôleur
-     * (Renderer, Logger, ErrorPresenter, SessionManager et Stat)
-     * à l'aide de mocks PHPUnit. Elle permet également de définir la route active.
-     *
-     * @param Stat|null $model Instance de modèle Stat à utiliser ou null pour en créer un mock.
-     * @param string    $route Nom de la route à définir pour le contrôleur (par défaut : 'add-stat').
-     *
-     * @return StatController Instance du contrôleur configurée pour les tests.
-     */
-    private function getController(
-        ?Stat $model = null,
-        string $route = 'add-stat'
-    ): StatController {
-        $renderer       = $this->createMock(Renderer::class);
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-        $model          = $model ?: $this->createMock(Stat::class);
-
-        $controller = new StatController($renderer, $logger, $errorPresenter, $session, $model);
-        $controller->setCurrentRoute($route);
-        return $controller;
-    }
 
     /**
-     * Vérifie que le formulaire d’ajout est affiché correctement via la méthode `showAddForm()`.
+     * Exécute handleAdd et vérifie le résultat attendu.
      *
-     * Ce test :
-     * - mocke le renderer pour simuler le rendu de la vue
-     * - s'assure que `renderDefault()` est bien appelée comme effet de bord
-     *
-     * @return void
+     * @param bool   $expectedSuccess      true si l'ajout doit réussir, false sinon
      */
-    public function testShowAddForm(): void
+    private function assertHandleAddOutcome(bool $expectedSuccess): void
     {
-        $renderer       = $this->createMock(Renderer::class);
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-        $model          = $this->createMock(Stat::class);
+        $model = $this->createMock(Stat::class);
+        $model->expects($this->once())
+            ->method('add')
+            ->with('Nouvelle stat')
+            ->willReturn($expectedSuccess);
 
-        $renderer->method('render')->willReturn('form');
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'showAddForm');
-        $ref->setAccessible(true);
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('add-stat');
+        $this->preparePost(['stat' => 'Nouvelle stat']);
 
         ob_start();
+        $ref = new \ReflectionMethod($controller, 'handleAdd');
+        $ref->setAccessible(true);
         $ref->invoke($controller);
         $output = ob_get_clean();
 
+        $this->assertIsString($output);
+
+        if ($expectedSuccess) {
+            $this->assertStringContainsString('Succès', $output);
+            $this->assertStringContainsString("Statistique ajoutée !", $output);
+        } else {
+            $this->assertSame(
+                "Erreur lors de l'ajout.",
+                $controller->getErrors()['global'] ?? null
+            );
+            $this->assertStringContainsString('<form>add</form>', $output);
+        }
     }
 
     /**
-     * Vérifie le comportement de `handleAdd()` lors d’un ajout réussi.
-     *
-     * Ce test :
-     * - simule une requête POST contenant une statistique valide
-     * - mocke le modèle pour retourner true sur `add()`
-     * - capture le rendu et vérifie que le message de succès est présent
-     *
-     * @return void
+     * Vérifie qu'un ajout valide appelle le modèle et affiche le succès.
      */
     public function testHandleAddValid(): void
     {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['stat']             = 'Nouvelle stat';
+        $this->assertHandleAddOutcome(true);
+    }
 
-        $model = $this->createMock(Stat::class);
-        $model->expects($this->once())->method('add')->with('Nouvelle stat')->willReturn(true);
+    /**
+     * Vérifie la gestion d'un échec lors de l'ajout dans StatController.
+     */
+    public function testHandleAddFailure(): void
+    {
+        $this->assertHandleAddOutcome(false);
 
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
+    }
 
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->with('csrf_token')->willReturn($csrf);
-
-        $controller = new StatController(
-            $renderer,
-            $this->createMock(LoggerInterface::class),
-            $this->createMock(ErrorPresenterInterface::class),
-            $session,
-            $model
-        );
-
+    /**
+     * Teste la gestion des erreurs de validation pour différentes entrées invalides.
+     *
+     * @param string $input  La valeur soumise dans le champ 'obtaining'
+     * @param string $expectedErrorMessage  Le message d'erreur attendu
+     */
+    private function assertInvalidStatInput(string $input, string $expectedErrorMessage): void
+    {
+        $model      = $this->createMock(Stat::class);
+        $controller = $this->getController($model);
         $controller->setCurrentRoute('add-stat');
 
+        $this->preparePost(['stat' => $input]);
+
         ob_start();
-        $ref = new ReflectionMethod($controller, 'handleAdd');
+        $ref = new \ReflectionMethod($controller, 'handleAdd');
         $ref->setAccessible(true);
         $ref->invoke($controller);
         $output = ob_get_clean();
 
-        $this->assertStringContainsString('success', (string) $output);
+        $this->assertSame($expectedErrorMessage, $controller->getErrors()['stat'] ?? null);
+        $this->assertStringContainsString('<form>add</form>', (string) $output);
+
+        $refOld = new \ReflectionMethod($controller, 'getOld');
+        $refOld->setAccessible(true);
+        $old = $refOld->invoke($controller);
+
+        $this->assertSame(['stat' => $input], $old);
     }
 
     /**
-     * Vérifie que `handleAdd()` gère correctement un échec de création en base.
+     * Teste le scénario où une validation échoue lors de l'ajout d'un moyen d'obtention vide.
      *
-     * Ce test :
-     * - envoie une requête POST avec une statistique valide
-     * - force l’échec de la méthode `add()`
-     * - vérifie que les erreurs et anciennes valeurs sont passées à la vue
-     *
-     * @return void
+     * Ce test vérifie que :
+     * - Une entrée invalide déclenche une erreur de validation.
+     * - L'erreur est bien enregistrée via `getErrors()`.
+     * - Le formulaire est réaffiché.
+     * - Les données invalides sont conservées via `getOld()`.
      */
-    public function testHandleAddFailureCoversElse(): void
+    public function testHandleAddValidationFailureWithEmptyStat(): void
     {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['stat']             = 'Nouvelle stat';
+        $this->assertInvalidStatInput('', 'Le champ statistique est obligatoire.');
+    }
 
-        $old                    = [];
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
+    /**
+     * Teste le scénario où une validation échoue lors de l'ajout d'un moyen d'obtention trop court.
+     *
+     * Ce test vérifie que :
+     * - Une entrée invalide déclenche une erreur de validation.
+     * - L'erreur est bien enregistrée via `getErrors()`.
+     * - Le formulaire est réaffiché.
+     * - Les données invalides sont conservées via `getOld()`.
+     */
+    public function testHandleAddValidationFailureWithStatTooShort(): void
+    {
+        $this->assertInvalidStatInput('T', 'La statistique doit avoir au moins 2 caractères.');
+    }
 
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use (&$old, $csrf) {
-            if ($key === 'old') {
-                return $old;
-            }
+    /**
+     * Teste le scénario où une validation échoue lors de l'ajout d'un moyen d'obtention contenant des caractères spéciaux.
+     *
+     * Ce test vérifie que :
+     * - Une entrée invalide déclenche une erreur de validation.
+     * - L'erreur est bien enregistrée via `getErrors()`.
+     * - Le formulaire est réaffiché.
+     * - Les données invalides sont conservées via `getOld()`.
+     */
+    public function testHandleAddValidationFailureWithSpecialCharacters(): void
+    {
+        $this->assertInvalidStatInput('test!', 'Lettres, chiffres, espaces, % ou + uniquement.');
+    }
 
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-        $session->method('set')->willReturnCallback(function ($key, $value) use (&$old) {
-            if ($key === 'old') {
-                $old = $value;
-            }
-        });
-
+    /**
+     * Vérifie que handleAdd() signale une erreur lorsque l'on soumet un nom d'obtention déjà existant.
+     *
+     * Ce test simule le cas où l'utilisateur soumet un nom ("Doublon") qui existe déjà en base.
+     * Il vérifie que :
+     * - la méthode existsByName() est appelée et retourne true ;
+     * - l'erreur de validation "Ce moyen d'obtention existe déjà." est correctement ajoutée ;
+     * - le formulaire de saisie est affiché de nouveau ;
+     * - la valeur saisie est conservée via la méthode getOld().
+     */
+    public function testHandleAddValidationFailureWithNonUniqueStat(): void
+    {
         $model = $this->createMock(Stat::class);
-        $model->expects($this->once())->method('add')->with('Nouvelle stat')->willReturn(false);
+        $model->method('existsByName')->with('Doublon')->willReturn(true); // Simule que "Doublon" existe déjà
+        $model->method('add')->willReturn(false);                          // L'ajout ne se fera pas
 
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturnCallback(function ($view, $data = []) {
-            if ($view === 'stats/add-stat') {
-                TestCase::assertIsArray($data);
-                TestCase::assertArrayHasKey('errors', $data);
-                TestCase::assertIsArray($data['errors']);
-                TestCase::assertArrayHasKey('old', $data);
-                TestCase::assertIsArray($data['old']);
-                TestCase::assertSame('Nouvelle stat', $data['old']['stat']);
-                TestCase::assertArrayHasKey('global', $data['errors']);
-                TestCase::assertSame('Erreur lors de l\'ajout.', $data['errors']['global']);
-                return 'form';
-            }
-            return '';
-        });
-
-        $controller = new StatController(
-            $renderer,
-            $this->createMock(LoggerInterface::class),
-            $this->createMock(ErrorPresenterInterface::class),
-            $session,
-            $model
-        );
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('add-stat');
+        $this->preparePost(['stat' => 'Doublon']);
 
         ob_start();
-        $ref = new ReflectionMethod($controller, 'handleAdd');
+        $ref = new \ReflectionMethod($controller, 'handleAdd');
         $ref->setAccessible(true);
         $ref->invoke($controller);
-        ob_end_clean();
+        $output = ob_get_clean();
+
+        $this->assertSame('Cette statistique existe déjà.', $controller->getErrors()['stat'] ?? null);
+        $this->assertStringContainsString('<form>add</form>', (string) $output);
+
+        $refOld = new \ReflectionMethod($controller, 'getOld');
+        $refOld->setAccessible(true);
+        $old = $refOld->invoke($controller);
+        $this->assertSame(['stat' => 'Doublon'], $old);
     }
 
     /**
-     * Vérifie que `showEditSelectForm()` utilise bien le modèle pour récupérer les éléments
-     * et que `renderDefault()` est appelé pour afficher la sélection.
+     * Teste le comportement de la méthode handleEdit du contrôleur
+     * selon que la mise à jour du moyen d'obtention réussisse ou échoue.
+     *
+     * Cette méthode :
+     * - Mock un modèle Stat avec des retours prédéfinis pour les méthodes `get` et `update`
+     * - Simule une requête POST pour modifier un moyen d'obtention
+     * - Invoque la méthode privée handleEdit via Reflection
+     * - Vérifie la sortie et les messages d'erreur ou de succès générés
+     *
+     * @param bool $expectedSuccess Indique si la mise à jour est censée réussir ou échouer
+     */
+    private function assertHandleEditOutcome(bool $expectedSuccess): void
+    {
+        $model = $this->createMock(Stat::class);
+        $model->method('get')
+            ->with(1)
+            ->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
+        $model->method('update')
+            ->with(1, 'Nouvelle stat')
+            ->willReturn($expectedSuccess);
+
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('edit-stat');
+
+        $this->preparePost([
+            'edit_id' => 1,
+            'stat'    => 'Nouvelle stat',
+        ]);
+
+        ob_start();
+        $ref = new \ReflectionMethod($controller, 'handleEdit');
+        $ref->setAccessible(true);
+        $ref->invoke($controller);
+        $output = ob_get_clean();
+
+        $this->assertIsString($output);
+
+        if ($expectedSuccess) {
+            $this->assertStringContainsString('Succès', $output);
+            $this->assertStringContainsString("Statistique modifiée !", $output);
+        } else {
+            $this->assertSame(
+                "Erreur lors de la modification.",
+                $controller->getErrors()['global'] ?? null
+            );
+            $this->assertStringContainsString('<form>add</form>', $output); // car add.php utilisée
+        }
+    }
+
+    /**
+     * Vérifie qu'une édition valide affiche le message de succès.
+     */
+    public function testHandleEditValid(): void
+    {
+        $this->assertHandleEditOutcome(true);
+    }
+
+    /**
+     * Vérifie la gestion d’un échec lors de l’édition dans StatController.
+     */
+    public function testHandleEditFailure(): void
+    {
+        $this->assertHandleEditOutcome(false);
+    }
+
+    /**
+     * Vérifie qu'une édition invalide déclenche une erreur de validation.
+     */
+    public function testHandleEditValidationFailure(): void
+    {
+        $model = $this->createMock(Stat::class);
+        $model->method('get')
+            ->with(1)
+            ->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
+
+        $controller = $this->getController($model);
+        $controller->setCurrentRoute('edit-stat');
+
+        $this->preparePost([
+            'edit_id' => 1,
+            'stat'    => 'T', // Trop court
+        ]);
+
+        ob_start();
+        $ref = new \ReflectionMethod($controller, 'handleEdit');
+        $ref->setAccessible(true);
+        $ref->invoke($controller);
+        $output = ob_get_clean();
+
+        $this->assertSame('La statistique doit avoir au moins 2 caractères.', $controller->getErrors()['stat'] ?? null);
+        $this->assertStringContainsString('<form>add</form>', (string) $output);
+
+        $refOld = new \ReflectionMethod($controller, 'getOld');
+        $refOld->setAccessible(true);
+        $old = $refOld->invoke($controller);
+        $this->assertSame(['stat' => 'T'], $old);
+    }
+
+    /**
+     * Vérifie que le bloc `catch` d'une méthode handleX intercepte bien les exceptions simulées.
+     *
+     * @param string $methodToTest     Méthode publique à appeler ('handleAdd' ou 'handleEdit')
+     * @param string $crudMethodToMock Méthode à surcharger ('handleCrudAdd' ou 'handleCrudEdit')
+     */
+    private function assertOuterCatchIsTriggered(string $methodToTest, string $crudMethodToMock): void
+    {
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+        $model          = new Stat(Database::getInstance(), $logger);
+
+        $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends StatController
+        {
+            public function testable(string $method): void
+            {
+                $this->$method();
+            }
+
+            protected function handleCrudAdd(string $a, callable $b, callable $c): void
+            {
+                throw new \RuntimeException('Exception simulée depuis handleCrudAdd');
+            }
+
+            protected function handleCrudEdit(string $e, callable $a, callable $b, callable $c, callable $d): void
+            {
+                throw new \RuntimeException('Exception simulée depuis handleCrudEdit');
+            }
+            protected function handleCrudDelete(callable $a, callable $b, callable $c, callable $d): void
+            {
+                throw new \RuntimeException('Exception simulée depuis handleCrudDelete');
+            }
+        };
+
+        $controller->testable($methodToTest);
+        $this->expectNotToPerformAssertions();
+    }
+
+    /**
+     * Teste que le bloc `catch` de la méthode `handleAdd()` intercepte bien les exceptions.
+     *
+     * Ce test garantit que, lorsqu'une exception est levée depuis `handleCrudAdd()`, elle est
+     * correctement capturée par le bloc `catch (\Throwable $e)` de `handleAdd()`.
+     * Une sous-classe anonyme de `StatController` redéfinit `handleCrudAdd()` pour y injecter
+     * une exception déclenchée volontairement.
+     *
+     * Aucune assertion n'est nécessaire ici, car l'objectif est de couvrir le bloc `catch` et
+     * de s'assurer que l'exception ne provoque pas d'erreur fatale. Ce test aide à améliorer
+     * la couverture du code de gestion des erreurs.
+     *
+     * @covers ::handleAdd
+     * @return void
+     */
+    public function testHandleAddCoversOuterCatch(): void
+    {
+        $this->assertOuterCatchIsTriggered('handleAdd', 'handleCrudAdd');
+    }
+
+    /**
+     * Teste que le bloc `catch` de la méthode `handleEdit()` intercepte bien les exceptions.
+     *
+     * Ce test vérifie que, lorsqu’une exception est levée depuis `handleCrudEdit()`, elle est
+     * correctement capturée par le bloc `catch (\Throwable $e)` présent dans `handleEdit()`.
+     * Une sous-classe anonyme de `StatController` redéfinit `handleCrudEdit()` pour y déclencher
+     * une exception volontairement, simulant ainsi un scénario d'erreur.
+     *
+     * Ce test n'effectue aucune assertion fonctionnelle : son objectif est uniquement d'assurer
+     * que le bloc `catch` est bien exécuté et que l'exception ne provoque pas d'interruption,
+     * afin d'assurer une couverture correcte de la gestion d’erreur dans `handleEdit()`.
+     *
+     * @covers ::handleEdit
+     * @return void
+     */
+    public function testHandleEditCoversOuterCatch(): void
+    {
+        $this->assertOuterCatchIsTriggered('handleEdit', 'handleCrudEdit');
+    }
+
+    /**
+     * Teste que le bloc `catch` de la méthode `handleDelete()` intercepte bien les exceptions.
+     *
+     * Ce test vérifie que, lorsqu’une exception est levée depuis `handleCrudDelete()`, elle est
+     * correctement capturée par le bloc `catch (\Throwable $e)` présent dans `handleDelete()`.
+     * Une sous-classe anonyme de `StatController` redéfinit `handleCrudDelete()` pour y déclencher
+     * une exception volontairement, simulant ainsi un scénario d'erreur.
+     *
+     * Ce test n'effectue aucune assertion fonctionnelle : son objectif est uniquement d'assurer
+     * que le bloc `catch` est bien exécuté et que l'exception ne provoque pas d'interruption,
+     * afin d'assurer une couverture correcte de la gestion d’erreur dans `handleDelete()`.
+     *
+     * @covers ::handleDelete
+     * @return void
+     */
+    public function testHandleDeleteCoversOuterCatch(): void
+    {
+        $this->assertOuterCatchIsTriggered('handleDelete', 'handleCrudDelete');
+    }
+
+    /**
+     * Teste que le formulaire de sélection d'une statistique à éditer est correctement affiché.
      *
      * Ce test :
-     * - simule la méthode `getAll()` du modèle
-     * - vérifie que la vue 'select' est rendue et que le fallback est déclenché
-     *
-     * @return void
+     * - Mocke le modèle `Stat` pour retourner une obtention fictive ;
+     * - Utilise la méthode privée `showEditSelectForm` via réflexion ;
+     * - Capture le rendu HTML et vérifie que la balise <select> générée par la vue est bien présente.
      */
     public function testShowEditSelectForm(): void
     {
+        // Création d'un mock de Stat avec une valeur de retour attendue
         $model = $this->createMock(Stat::class);
-        $model->method('getAll')->willReturn([['id_stat' => 1, 'name' => 'stat1']]);
+        $model->method('getAll')->willReturn([
+            ['id_stat' => 1, 'name' => 'obt1'],
+        ]);
 
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('select');
+        // Instanciation du contrôleur avec le modèle mocké
+        $controller = $this->getController($model);
 
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([
-                $renderer,
-                $this->createMock(LoggerInterface::class),
-                $this->createMock(ErrorPresenterInterface::class),
-                $this->createMock(SessionManager::class),
-                $model,
-            ])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
+        // On rend la méthode privée accessible pour l’invocation directe
+        $refMethod = new \ReflectionMethod($controller, 'showEditSelectForm');
+        $refMethod->setAccessible(true);
 
-        $controller->expects($this->once())->method('renderDefault');
+        // Exécution
+        ob_start();
+        $refMethod->invoke($controller);
+        $output = ob_get_clean();
 
-        $ref = new ReflectionMethod($controller, 'showEditSelectForm');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
+        $this->assertNotFalse($output);
+        // Vérification que le contenu HTML attendu est bien présent
+        $this->assertStringContainsString('<select>select</select>', $output);
     }
 
     /**
-     * Vérifie que handleEdit() appelle `showEditSelectForm()` si l’enregistrement est introuvable.
-     *
-     * Ce test :
-     * - fournit un ID inexistant
-     * - configure le modèle pour retourner null sur `get()`
-     * - s’assure que la méthode fallback est bien appelée
-     *
-     * @return void
+     * Teste que l'édition avec un ID inexistant appelle showEditSelectForm.
      */
     public function testHandleEditNotFound(): void
     {
         $_POST['edit_id'] = 42;
-        $model            = $this->createMock(Stat::class);
+
+        // Mock du modèle retournant null pour ID inexistant
+        $model = $this->createMock(Stat::class);
         $model->method('get')->with(42)->willReturn(null);
 
-        $renderer       = $this->createMock(Renderer::class);
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-
+        // Mock du contrôleur pour intercepter l’appel à showEditSelectForm()
         $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
+            ->setConstructorArgs([
+                new Renderer($this->viewPath),
+                $this->createMock(LoggerInterface::class),
+                $this->createMock(ErrorPresenterInterface::class),
+                new SessionManager(),
+                $model,
+            ])
             ->onlyMethods(['showEditSelectForm'])
             ->getMock();
 
+        // Vérifie que showEditSelectForm est bien appelé
         $controller->expects($this->once())->method('showEditSelectForm');
 
-        $ref = new ReflectionMethod($controller, 'handleEdit');
+        // Appelle la méthode protégée handleEdit
+        $ref = new \ReflectionMethod($controller, 'handleEdit');
         $ref->setAccessible(true);
-
         $ref->invoke($controller);
     }
 
     /**
-     * Vérifie qu’une édition valide déclenche le rendu de confirmation (ex: "success").
+     * Vérifie que la méthode handleDelete du StatController fonctionne correctement
+     * lorsque la suppression de la statistique réussit.
      *
      * Ce test :
-     * - fournit un edit_id et une nouvelle valeur de stat
-     * - configure le modèle pour réussir la mise à jour
-     * - capture la sortie rendue
-     * - vérifie que le mot-clé "success" est présent dans le rendu
-     *
-     * @return void
+     * - Simule une requête POST de suppression avec confirmation
+     * - Mock le modèle Stat pour que la méthode `delete` retourne true
+     * - Mock le Renderer pour afficher un message de succès
+     * - Instancie le contrôleur avec les dépendances nécessaires
+     * - Appelle la méthode privée handleDelete via Reflection
+     * - Vérifie que la sortie contient le message de suppression réussie
      */
-    public function testHandleEditValid(): void
+    public function testHandleDeleteSuccess(): void
     {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['stat']             = 'Nouvelle stat';
-
-        $model = $this->createMock(Stat::class);
-        $model->method('get')->with(1)->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
-        $model->method('update')->with(1, 'Nouvelle stat')->willReturn(true);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
-
-        $controller = new StatController($renderer, $this->createMock(LoggerInterface::class), $this->createMock(ErrorPresenterInterface::class), $this->createMock(SessionManager::class), $model);
-
-        $ref = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('success', (string) $output);
-    }
-
-    /**
-     * Vérifie que le contrôleur affiche à nouveau le formulaire si la mise à jour échoue.
-     *
-     * Ce test :
-     * - simule une requête POST avec un champ `stat` et un `edit_id` existant
-     * - configure le modèle pour renvoyer un enregistrement existant
-     * - force l’échec de la méthode `update()`
-     * - vérifie que le rendu contient bien le mot-clé `form`
-     *
-     * @return void
-     */
-    public function testHandleEditFailure(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['stat']             = 'Nouvelle stat';
-
-        $model = $this->createMock(Stat::class);
-        $model->method('get')->with(1)->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
-        $model->method('update')->with(1, 'Nouvelle stat')->willReturn(false);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('form');
-
-        $controller = new StatController($renderer, $this->createMock(LoggerInterface::class), $this->createMock(ErrorPresenterInterface::class), $this->createMock(SessionManager::class), $model);
-
-        $ref = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('form', (string) $output);
-    }
-    /**
-     * Vérifie que handleEdit() traite correctement une mise à jour réussie.
-     *
-     * Ce test :
-     * - simule une requête POST avec un champ `stat` et un `edit_id` existant
-     * - configure le modèle pour renvoyer un enregistrement existant
-     * - force la réussite de la méthode `update()`
-     * - vérifie que le rendu contient bien le mot-clé `success`
-     *
-     * @return void
-     */
-    public function testProcessEditSuccess(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['stat']             = 'Nouvelle stat';
-
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use ($csrf) {
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-
-        $model = $this->createMock(Stat::class);
-        $model->method('get')->with(1)->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
-        $model->method('update')->with(1, 'Nouvelle stat')->willReturn(true);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-
-        $controller = new StatController($renderer, $logger, $errorPresenter, $session, $model);
-
-        $ref = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        TestCase::assertStringContainsString('success', (string) $output);
-    }
-
-    /**
-     * Vérifie que handleEdit() gère correctement un échec de mise à jour.
-     *
-     * Ce test :
-     * - simule une requête POST avec un champ `stat` et un `edit_id` existant
-     * - configure le modèle pour renvoyer un enregistrement existant
-     * - force l’échec de la méthode `update()`
-     * - vérifie que les erreurs sont passées à la vue
-     *
-     * @return void
-     */
-    public function testHandleEditFailureCoversElse(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['edit_id']          = 1;
-        $_POST['stat']             = 'Nouvelle stat';
-
-        $errors = [];
-        $old    = [];
-
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $session = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use (&$errors, &$old, $csrf) {
-            if ($key === 'errors') {
-                return $errors;
-            }
-
-            if ($key === 'old') {
-                return $old;
-            }
-
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-        $session->method('set')->willReturnCallback(function ($key, $value) use (&$errors, &$old) {
-            if ($key === 'errors') {
-                $errors = array_merge((array) $errors, (array) $value);
-            }
-
-            if ($key === 'old') {
-                $old = $value;
-            }
-
-        });
-
-        $model = $this->createMock(Stat::class);
-        $model->method('get')->with(1)->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
-        $model->method('update')->with(1, 'Nouvelle stat')->willReturn(false);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturnCallback(function ($view, $data = []) {
-            if ($view === 'stats/add-stat') {
-                TestCase::assertIsArray($data);
-                TestCase::assertArrayHasKey('errors', $data);
-                TestCase::assertIsArray($data['errors']);
-                TestCase::assertArrayHasKey('global', $data['errors']);
-                TestCase::assertSame('Erreur lors de la modification.', $data['errors']['global']);
-                TestCase::assertArrayHasKey('old', $data);
-                TestCase::assertIsArray($data['old']);
-                TestCase::assertSame('Ancienne stat', $data['old']['stat']);
-
-            }
-            return 'form';
-        });
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'handleEdit');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie que la méthode `showDeleteSelectForm()` utilise correctement `getAll()`
-     * et déclenche `renderDefault()` avec la vue attendue.
-     *
-     * @return void
-     */
-    public function testShowDeleteSelectForm(): void
-    {
-        $model = $this->createMock(Stat::class);
-        $model->method('getAll')->willReturn([['id_stat' => 1, 'name' => 'stat1']]);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')
-            ->willReturnCallback(function ($view, $data = []) {
-                if ($view === 'stats/stat-select') {
-                    return 'select';
-                }
-                return '';
-            });
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([
-                $renderer,
-                $this->createMock(LoggerInterface::class),
-                $this->createMock(ErrorPresenterInterface::class),
-                $this->createMock(SessionManager::class),
-                $model,
-            ])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
-
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'showDeleteSelectForm');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie que le contrôleur affiche la sélection si l’ID à supprimer n’existe pas.
-     *
-     * Ce test :
-     * - simule une requête POST avec un `delete_id` inexistant
-     * - configure le modèle pour retourner `null`
-     * - s’assure que `showDeleteSelectForm()` est appelée
-     *
-     * @return void
-     */
-    public function testHandleDeleteNotFound(): void
-    {
-        $_POST['delete_id'] = 42;
-        $model              = $this->createMock(Stat::class);
-        $model->method('get')->with(42)->willReturn(null);
-
-        $renderer       = $this->createMock(Renderer::class);
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['showDeleteSelectForm'])
-            ->getMock();
-
-        $controller->expects($this->once())->method('showDeleteSelectForm');
-
-        $ref = new ReflectionMethod($controller, 'handleDelete');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller);
-    }
-
-    /**
-     * Vérifie le comportement en cas de suppression validée et réussie.
-     *
-     * Ce test :
-     * - simule une requête POST avec `delete_id` + confirmation
-     * - configure le modèle pour que `delete()` retourne true
-     * - capture le rendu HTML et vérifie que 'success' est présent
-     *
-     * @return void
-     */
-    public function testHandleDeleteValid(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
+        $this->preparePost([
+            'delete_id'      => 1,
+            'confirm_delete' => 1,
+        ]);
 
         $model = $this->createMock(Stat::class);
         $model->method('delete')->with(1)->willReturn(true);
 
         $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
-
-        $controller = new StatController($renderer, $this->createMock(LoggerInterface::class), $this->createMock(ErrorPresenterInterface::class), $this->createMock(SessionManager::class), $model);
-
-        $ref = new ReflectionMethod($controller, 'handleDelete');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('success', (string) $output);
-    }
-
-    /**
-     * Vérifie que le contrôleur affiche le formulaire si la suppression échoue.
-     *
-     * Ce test :
-     * - simule une requête de suppression confirmée
-     * - force `delete()` à retourner false
-     * - vérifie que le message de fallback est rendu (ex: formulaire)
-     *
-     * @return void
-     */
-    public function testHandleDeleteFailure(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
-
-        $model = $this->createMock(Stat::class);
-        $model->method('delete')->with(1)->willReturn(false);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('form');
-
-        $controller = new StatController($renderer, $this->createMock(LoggerInterface::class), $this->createMock(ErrorPresenterInterface::class), $this->createMock(SessionManager::class), $model);
-
-        $ref = new ReflectionMethod($controller, 'handleDelete');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('form', (string) $output);
-    }
-
-    /**
-     * Vérifie que l’action `showList()` récupère les données et appelle `renderDefault()`.
-     *
-     * Ce test :
-     * - simule `getAll()` avec une liste de stats
-     * - vérifie que la vue 'stats/stats-list' est rendue via le renderer
-     * - s'assure que `renderDefault()` est déclenchée dans le contrôleur
-     *
-     * @return void
-     */
-    public function testShowList(): void
-    {
-        $model = $this->createMock(Stat::class);
-        $model->method('getAll')->willReturn([['id_stat' => 1, 'name' => 'stat1']]);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')
-            ->willReturnCallback(function ($view, $data = []) {
-                if ($view === 'stats/stats-list') {
-                    return 'liste';
-                }
-                return '';
-            });
+        $renderer->method('render')->willReturn("<div role=\"alert\">Statistique supprimée !</div>");
 
         $controller = $this->getMockBuilder(StatController::class)
             ->setConstructorArgs([
                 $renderer,
                 $this->createMock(LoggerInterface::class),
                 $this->createMock(ErrorPresenterInterface::class),
-                $this->createMock(SessionManager::class),
+                new SessionManager(),
                 $model,
             ])
-            ->onlyMethods(['renderDefault'])
+            ->onlyMethods(['getDeleteId'])
             ->getMock();
 
-        $controller->expects($this->once())->method('renderDefault');
+        $controller->method('getDeleteId')->willReturn(1);
 
-        $ref = new ReflectionMethod($controller, 'showList');
+        $ref = new \ReflectionMethod($controller, 'handleDelete');
         $ref->setAccessible(true);
 
+        ob_start();
         $ref->invoke($controller);
+        $output = ob_get_clean();
+
+        $this->assertNotFalse($output);
+        $this->assertStringContainsString("<div role=\"alert\">Statistique supprimée !</div>", $output);
+
     }
 
     /**
-     * Teste que le formulaire de confirmation de suppression est bien affiché pour un ID donné.
+     * Exécute le test de processDelete avec un scénario donné.
+     *
+     * @param bool   $deletionSuccess   Résultat attendu de $model->delete().
+     * @param string|null $expectedOutput Chaîne attendue dans le rendu HTML (ou null si showDeleteSelectForm() est attendu).
+     * @param bool   $expectFallback   Si true, attend un appel à showDeleteSelectForm().
+     */
+    protected function assertProcessDeleteOutcome(bool $deletionSuccess, ?string $expectedOutput = null, bool $expectFallback = false): void
+    {
+        $model = $this->createMock(Stat::class);
+        $model->method('delete')->with(1)->willReturn($deletionSuccess);
+
+        $renderer = $this->createMock(Renderer::class);
+        $renderer->method('render')->willReturn($expectedOutput ?? '');
+
+        $controllerBuilder = $this->getMockBuilder(StatController::class)
+            ->setConstructorArgs([
+                $renderer,
+                $this->createMock(LoggerInterface::class),
+                $this->createMock(ErrorPresenterInterface::class),
+                new SessionManager(),
+                $model,
+            ]);
+
+        if ($expectFallback) {
+            $controllerBuilder->onlyMethods(['showDeleteSelectForm']);
+        }
+
+        $controller = $controllerBuilder->getMock();
+
+        if ($expectFallback) {
+            $controller->expects($this->once())->method('showDeleteSelectForm');
+        }
+
+        $ref = new \ReflectionMethod($controller, 'processDelete');
+        $ref->setAccessible(true);
+
+        ob_start();
+        $ref->invoke($controller, 1);
+        $output = ob_get_clean();
+
+        if (! $expectFallback && $expectedOutput !== null) {
+            $this->assertStringContainsString($expectedOutput, (string) $output);
+        }
+    }
+
+    /**
+     * Vérifie que l'appel à assertProcessDeleteOutcome produit un résultat conforme
+     * en cas de suppression réussie du moyen d'obtention.
+     *
+     * Ce test attend :
+     * - Un retour HTML contenant un message de succès
+     * - Une suppression réussie simulée
+     */
+    public function testProcessDeleteSuccess(): void
+    {
+        $this->assertProcessDeleteOutcome(true, "<div role=\"alert\">Statistique supprimée !</div>");
+    }
+
+    /**
+     * Vérifie que l'appel à assertProcessDeleteOutcome se comporte correctement
+     * en cas d'échec de suppression de la statistique.
+     *
+     * Ce test attend :
+     * - Aucun message HTML de succès
+     * - Le déclenchement du mécanisme de repli (fallback) si la suppression échoue
+     */
+    public function testProcessDeleteFailure(): void
+    {
+        $this->assertProcessDeleteOutcome(false, null, expectFallback: true);
+    }
+
+    /**
+     * Teste la méthode showDeleteConfirmForm pour les cas succès et échec.
+     *
+     * @param int $id ID à tester
+     * @param array<string,int|string>|null $record Données à retourner depuis le modèle (null si non trouvé)
+     * @param bool $expectFallback Indique si showDeleteSelectForm() doit être appelée
+     * @param string|null $expectedRender Résultat attendu du renderer si succès
+     */
+    protected function assertShowDeleteConfirmFormOutcome(
+        int $id,
+        ?array $record,
+        bool $expectFallback = false,
+        ?string $expectedRender = null
+    ): void {
+        $model = $this->createMock(Stat::class);
+        $model->method('get')->with($id)->willReturn($record);
+
+        $renderer = $this->createMock(Renderer::class);
+
+        if (! $expectFallback && $expectedRender !== null) {
+            $renderer->expects($this->once())
+                ->method('render')
+                ->with(
+                    'stats/delete-stat-confirm',
+                    $this->callback(function ($data) use ($record, $id) {
+                        TestCase::assertIsArray($data);
+                        TestCase::assertArrayHasKey('stat', $data);
+                        TestCase::assertArrayHasKey('id', $data);
+                        TestCase::assertArrayHasKey('errors', $data);
+                        return $data['stat'] === $record && $data['id'] === $id;
+                    })
+                )
+                ->willReturn($expectedRender);
+        }
+
+        $builder = $this->getMockBuilder(StatController::class)
+            ->setConstructorArgs([
+                $renderer,
+                $this->createMock(LoggerInterface::class),
+                $this->createMock(ErrorPresenterInterface::class),
+                new SessionManager(),
+                $model,
+            ]);
+
+        $methods = [];
+        if ($expectFallback) {
+            $methods[] = 'showDeleteSelectForm';
+        } else {
+            $methods[] = 'renderDefault';
+        }
+
+        $builder->onlyMethods($methods);
+        $controller = $builder->getMock();
+
+        $controller->expects($this->once())->method($expectFallback ? 'showDeleteSelectForm' : 'renderDefault');
+
+        $ref = new \ReflectionMethod($controller, 'showDeleteConfirmForm');
+        $ref->setAccessible(true);
+        $ref->invoke($controller, $id);
+    }
+
+    /**
+     * Vérifie que le formulaire de confirmation de suppression n'est pas affiché
+     * lorsque la statistique recherchée est introuvable.
      *
      * Ce test :
-     * - mocke le modèle `Stat` pour retourner un enregistrement connu
-     * - vérifie que le renderer affiche la vue 'stats/delete-stat-confirm' avec les bonnes données
-     * - s'assure que la méthode protégée `renderDefault()` est bien appelée à la fin du processus
+     * - Utilise un identifiant invalide (99) sans enregistrement associé
+     * - Attend que le système déclenche une stratégie de repli (fallback)
+     */
+    public function testShowDeleteConfirmFormNotFound(): void
+    {
+        $this->assertShowDeleteConfirmFormOutcome(id: 99, record: null, expectFallback: true);
+    }
+
+    /**
+     * Vérifie que le formulaire de confirmation de suppression est bien affiché
+     * lorsque la statistique existe.
      *
-     * @return void
+     * Ce test :
+     * - Utilise un identifiant valide et un enregistrement associé
+     * - Vérifie que le rendu correspond à la vue de confirmation attendue
+     * - Ne déclenche pas de fallback
      */
     public function testShowDeleteConfirmFormDisplaysConfirmation(): void
     {
-        $id     = 1;
-        $record = ['id_stat' => $id, 'name' => 'stat1'];
+        $this->assertShowDeleteConfirmFormOutcome(
+            id: 1,
+            record: ['id_stat' => 1, 'name' => 'obt1'],
+            expectFallback: false,
+            expectedRender: 'confirm'
+        );
+    }
 
+    /**
+     * Vérifie que la méthode de route retournée par le contrôleur est correcte.
+     *
+     * @param string $methodName Nom de la méthode à tester (ex: 'getAddRoute').
+     * @param string $expectedRoute Nom de la route attendue (ex: 'add-obtaining').
+     */
+    protected function assertRouteMethodReturns(string $methodName, string $expectedRoute): void
+    {
+        $controller = $this->getController();
+        $ref        = new \ReflectionMethod($controller, $methodName);
+        $ref->setAccessible(true);
+
+        $this->assertSame($expectedRoute, $ref->invoke($controller));
+    }
+
+    /**
+     * Vérifie que la méthode getAddRoute retourne bien l'identifiant de la route "add-stat".
+     *
+     * Ce test :
+     * - Appelle la méthode getAddRoute
+     * - Vérifie que le nom de la route retournée est correct
+     */
+    public function testGetAddRoute(): void
+    {
+        $this->assertRouteMethodReturns('getAddRoute', 'add-stat');
+    }
+
+    /**
+     * Vérifie que la méthode getEditRoute retourne bien l'identifiant de la route "edit-stat".
+     *
+     * Ce test :
+     * - Appelle la méthode getEditRoute
+     * - Vérifie que le nom de la route retournée est correct
+     */
+    public function testGetEditRoute(): void
+    {
+        $this->assertRouteMethodReturns('getEditRoute', 'edit-stat');
+    }
+
+    /**
+     * Vérifie que la méthode getDeleteRoute retourne bien l'identifiant de la route "delete-stat".
+     *
+     * Ce test :
+     * - Appelle la méthode getDeleteRoute
+     * - Vérifie que le nom de la route retournée est correct
+     */
+    public function testGetDeleteRoute(): void
+    {
+        $this->assertRouteMethodReturns('getDeleteRoute', 'delete-stat');
+    }
+
+    /**
+     * Construit un mock de contrôleur pour showList avec configuration selon le scénario.
+     */
+    private function buildControllerForShowList(
+        Stat $model,
+        ?Renderer $renderer = null,
+        bool $expectRenderDefault = false,
+        ? \Throwable $expectHandleException = null
+    ) : StatController {
+        $methods = [];
+        if ($expectRenderDefault) {
+            $methods[] = 'renderDefault';
+        }
+        if ($expectHandleException) {
+            $methods[] = 'handleException';
+        }
+
+        $controllerBuilder = $this->getMockBuilder(StatController::class)
+            ->setConstructorArgs([
+                $renderer ?? new Renderer($this->viewPath),
+                $this->createMock(LoggerInterface::class),
+                $this->createMock(ErrorPresenterInterface::class),
+                new SessionManager(),
+                $model,
+            ]);
+
+        if ($methods) {
+            $controllerBuilder->onlyMethods($methods);
+        }
+
+        $controller = $controllerBuilder->getMock();
+
+        if ($expectRenderDefault) {
+            $controller->expects($this->once())->method('renderDefault');
+        }
+        if ($expectHandleException) {
+            $controller->expects($this->once())
+                ->method('handleException')
+                ->with($expectHandleException);
+        }
+
+        return $controller;
+    }
+
+    /**
+     * Utilitaire pour invoquer une méthode protégée ou privée.
+     */
+    private function invokeProtectedMethod(object $object, string $methodName, mixed ...$args): mixed
+    {
+        $ref = new \ReflectionMethod($object, $methodName);
+        $ref->setAccessible(true);
+        return $ref->invoke($object, ...$args);
+    }
+
+    /**
+     * Vérifie que la méthode showList du contrôleur obtient et affiche correctement
+     * la liste des statistiques.
+     *
+     * Ce test :
+     * - Mock le modèle Stat pour retourner une liste prédéfinie
+     * - Mock le Renderer pour capturer le rendu avec les bonnes données
+     * - Assure que le rendu contient bien un élément avec le nom attendu
+     */
+    public function testShowList(): void
+    {
         $model = $this->createMock(Stat::class);
-        $model->method('get')->with($id)->willReturn($record);
+        $model->method('getAll')->willReturn([
+            ['id_stat' => 1, 'name' => 'obt1'],
+        ]);
 
         $renderer = $this->createMock(Renderer::class);
         $renderer->expects($this->once())
             ->method('render')
             ->with(
-                'stats/delete-stat-confirm',
-                $this->callback(function ($data) use ($record, $id) {
-                    // Ajoute ces assertions de type :
-                    TestCase::assertIsArray($data);
-                    TestCase::assertArrayHasKey('stat', $data);
-                    TestCase::assertArrayHasKey('id', $data);
-                    TestCase::assertArrayHasKey('errors', $data);
-                    return $data['stat'] === $record && $data['id'] === $id && isset($data['errors']);
+                'stats/stats-list',
+                $this->callback(function (array $data): bool {
+                    if (! isset($data['stat']) || ! is_array($data['stat'])) {
+                        return false; // ou lancer une exception personnalisée si besoin
+                    }
+
+                    /** @var list<array{id_stat: int, name: string}> $stat */
+                    $stat = $data['stat'];
+
+                    $this->assertCount(1, $stat);
+                    $this->assertSame('obt1', $stat[0]['name']);
+
+                    return true;
                 })
             )
-            ->willReturn('confirm');
+            ->willReturn('liste');
 
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([
-                $renderer,
-                $this->createMock(LoggerInterface::class),
-                $this->createMock(ErrorPresenterInterface::class),
-                $this->createMock(SessionManager::class),
-                $model,
-            ])
-            ->onlyMethods(['renderDefault'])
-            ->getMock();
+        $controller = $this->buildControllerForShowList($model, $renderer, expectRenderDefault: true);
 
-        $controller->expects($this->once())->method('renderDefault');
-
-        $ref = new ReflectionMethod($controller, 'showDeleteConfirmForm');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller, $id);
+        $this->invokeProtectedMethod($controller, 'showList');
     }
 
     /**
-     * Vérifie que la méthode processDelete() traite correctement une suppression réussie.
+     * Vérifie que la méthode showList gère correctement une exception levée
+     * lors de la récupération des statistiques.
      *
      * Ce test :
-     * - simule une requête POST avec un ID de statistique à supprimer
-     * - configure le modèle pour que delete() retourne true
-     * - capture le rendu HTML et vérifie qu'il contient 'success'
-     *
-     * @return void
+     * - Simule une exception provenant du modèle lors de l'appel à getAll
+     * - Vérifie que le contrôleur traite l'exception via le mécanisme prévu
      */
-    public function testProcessDeleteSuccess(): void
+    public function testShowListCatchesException(): void
     {
+        $exception = new \RuntimeException('BOOM');
+
         $model = $this->createMock(Stat::class);
-        $model->method('delete')->with(1)->willReturn(true);
+        $model->method('getAll')->willThrowException($exception);
 
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
+        $controller = $this->buildControllerForShowList($model, null, expectHandleException: $exception);
 
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
+        $this->invokeProtectedMethod($controller, 'showList');
+    }
 
-        $controller = new StatController($renderer, $logger, $errorPresenter, $session, $model);
+    /**
+     * Teste le comportement de getDeleteId() selon l'entrée donnée.
+     *
+     * @param mixed $input Valeur simulée de $_POST['delete_id']
+     * @param int|false $expected Résultat attendu après filtrage
+     */
+    private function assertDeleteId(mixed $input, int | false $expected): void
+    {
+        if ($input === null) {
+            unset($_POST['delete_id']);
+        } else {
+            $_POST['delete_id'] = $input;
+        }
 
-        $ref = new ReflectionMethod($controller, 'processDelete');
+        $controller = $this->getController();
+        $ref        = new \ReflectionMethod($controller, 'getDeleteId');
         $ref->setAccessible(true);
 
+        $result = $ref->invoke($controller);
+        $this->assertSame($expected, $result);
+    }
+
+    /**
+     * Vérifie que getDeleteId retourne correctement un entier valide
+     * lorsque la valeur d'entrée est une chaîne numérique.
+     *
+     * Ce test :
+     * - Simule une valeur "delete_id" sous forme de chaîne contenant "42"
+     * - Vérifie que la méthode renvoie l'entier 42
+     */
+    public function testGetDeleteIdWithValidInteger(): void
+    {
+        $this->assertDeleteId('42', 42);
+    }
+
+    /**
+     * Vérifie que getDeleteId retourne false lorsque la valeur d'entrée est invalide ou absente.
+     *
+     * Ce test :
+     * - Passe successivement des valeurs non valides : chaîne non numérique, vide, null
+     * - Vérifie que la méthode échoue à produire un identifiant valide
+     */
+    public function testGetDeleteIdWithInvalidOrMissingValue(): void
+    {
+        $this->assertDeleteId('invalid', false);
+        $this->assertDeleteId('', false);
+        $this->assertDeleteId(null, false); // simulate absence
+    }
+
+    /**
+     * Vérifie que la méthode showDeleteSelectForm() du StatController
+     * transmet correctement la liste des statistiques au template de sélection.
+     *
+     * Ce test :
+     * - Injecte une fausse liste de statistiques via getAll()
+     * - Simule le rendu via un Renderer mocké avec un callback personnalisé
+     * - Inspecte les données passées au template 'partials/select-item'
+     * - Autorise l'appel à 'templates/default' sans perturber le test
+     * - Garantit que le comportement est complet et bien typé
+     */
+    public function testShowDeleteSelectFormRendersStatSelection(): void
+    {
+        $model = $this->createMock(Stat::class);
+        $model->method('getAll')->willReturn([
+            ['id_stat' => 1, 'name' => 'attaque'],
+            ['id_stat' => 2, 'name' => 'défense'],
+        ]);
+
+        $renderer = $this->createMock(Renderer::class);
+        $renderer->method('render')
+            ->willReturnCallback(function (string $template, array $data): string {
+                if ($template === 'partials/select-item') {
+                    // ⚙️ Teste les données envoyées à ce template
+                    $this->assertSame('delete-stat', $data['action']);
+                    $this->assertSame('delete_id', $data['fieldName']);
+                    $this->assertSame('Supprimer', $data['buttonLabel']);
+                    $this->assertSame('Choisir la statistique à supprimer', $data['title']);
+                    $this->assertSame('name', $data['nameField']);
+                    $this->assertSame('id_stat', $data['idField']);
+                    $this->assertSame([], $data['errors']);
+
+                    /** @var list<array{id_stat: int, name: string}> $items */
+                    $items = $data['items'];
+                    $this->assertCount(2, $items);
+                    $this->assertSame('attaque', $items[0]['name']);
+                    $this->assertSame(1, $items[0]['id_stat']);
+                    $this->assertSame('défense', $items[1]['name']);
+                    $this->assertSame(2, $items[1]['id_stat']);
+
+                    return '<form>HTML</form>';
+                }
+
+                if ($template === 'templates/default') {
+                    return '<html>Page par défaut</html>';
+                }
+
+                $this->fail("Appel inattendu à render() avec le template : {$template}");
+            });
+
+        $controller = $this->getController($model, $renderer);
         ob_start();
-        $ref->invoke($controller, 1);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('success', (string) $output);
+        $this->invokeProtectedMethod($controller, 'showDeleteSelectForm');
+        ob_end_clean();
     }
 
-    /**
-     * Vérifie que la méthode processDelete() gère correctement une suppression échouée.
-     *
-     * Ce test :
-     * - simule une requête POST avec un ID de statistique à supprimer
-     * - configure le modèle pour que delete() retourne false
-     * - s'assure que le formulaire de sélection de suppression est affiché
-     *
-     * @return void
-     */
-    public function testProcessDeleteFailure(): void
-    {
-        $model = $this->createMock(Stat::class);
-        $model->method('delete')->with(1)->willReturn(false);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('form');
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-
-        $controller = $this->getMockBuilder(StatController::class)
-            ->setConstructorArgs([$renderer, $logger, $errorPresenter, $session, $model])
-            ->onlyMethods(['showDeleteSelectForm'])
-            ->getMock();
-
-        $controller->expects($this->once())->method('showDeleteSelectForm');
-
-        $ref = new ReflectionMethod($controller, 'processDelete');
-        $ref->setAccessible(true);
-
-        $ref->invoke($controller, 1);
-    }
-
-    /**
-     * Vérifie que handleDelete() traite correctement une suppression réussie.
-     *
-     * Ce test :
-     * - simule une requête POST avec un ID de statistique à supprimer
-     * - configure le modèle pour que delete() retourne true
-     * - capture le rendu HTML et vérifie qu'il contient 'success'
-     *
-     * @return void
-     */
-    public function testHandleDeleteProcessDeleteSuccess(): void
-    {
-        $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST['delete_id']        = 1;
-        $_POST['confirm_delete']   = 1;
-
-        // CSRF valide
-        $csrf                   = bin2hex(random_bytes(32));
-        $_SESSION['csrf_token'] = $csrf;
-        $_POST['csrf_token']    = $csrf;
-
-        $model = $this->createMock(Stat::class);
-        $model->method('delete')->with(1)->willReturn(true);
-
-        $renderer = $this->createMock(Renderer::class);
-        $renderer->method('render')->willReturn('success');
-
-        $logger         = $this->createMock(LoggerInterface::class);
-        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
-        $session        = $this->createMock(SessionManager::class);
-        $session->method('get')->willReturnCallback(function ($key) use ($csrf) {
-            if ($key === 'csrf_token') {
-                return $csrf;
-            }
-
-            return null;
-        });
-
-        $controller = new StatController($renderer, $logger, $errorPresenter, $session, $model);
-
-        $ref = new ReflectionMethod($controller, 'handleDelete');
-        $ref->setAccessible(true);
-
-        ob_start();
-        $ref->invoke($controller);
-        $output = ob_get_clean();
-
-        $this->assertStringContainsString('success', (string) $output);
-    }
-
-    /**
-     * Vérifie que la méthode protégée getAddRoute() retourne bien la route 'add-stat'.
-     *
-     * @return void
-     */
-    public function testGetAddRoute(): void
-    {
-        $controller = $this->getController();
-        $ref        = new ReflectionMethod($controller, 'getAddRoute');
-        $ref->setAccessible(true);
-        $this->assertSame('add-stat', $ref->invoke($controller));
-    }
-
-    /**
-     * Vérifie que la méthode protégée getEditRoute() retourne bien la route 'edit-stat'.
-     *
-     * @return void
-     */
-    public function testGetEditRoute(): void
-    {
-        $controller = $this->getController();
-        $ref        = new ReflectionMethod($controller, 'getEditRoute');
-        $ref->setAccessible(true);
-        $this->assertSame('edit-stat', $ref->invoke($controller));
-    }
-
-    /**
-     * Vérifie que la méthode protégée getDeleteRoute() retourne bien la route 'delete-stat'.
-     *
-     * @return void
-     */
-    public function testGetDeleteRoute(): void
-    {
-        $controller = $this->getController();
-        $ref        = new ReflectionMethod($controller, 'getDeleteRoute');
-        $ref->setAccessible(true);
-        $this->assertSame('delete-stat', $ref->invoke($controller));
-    }
 }
