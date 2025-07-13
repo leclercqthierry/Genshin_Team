@@ -88,7 +88,10 @@ class ForgotPasswordController extends AbstractController
         $this->addData('title', 'Réinitialisation de mot de passe');
         $this->addData('errors', $this->getErrors());
         $this->addData('old', $this->getOld());
-        $this->addData('scripts', ''); // Ajoute tes scripts JS si besoin
+        $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/forgot-password-validator.js"></script>
+        ');
 
         try {
             $this->addData('content', $this->renderer->render('forgot-password', [

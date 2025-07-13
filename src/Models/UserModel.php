@@ -9,7 +9,7 @@ use PDO;
 use Psr\Log\LoggerInterface;
 
 /**
- * Class User
+ * Class UserModel
  *
  * Ce modèle gère les opérations liées aux utilisateurs dans la base de données.
  * Il s'appuie sur une connexion PDO obtenue via la classe Database (qui implémente le pattern Singleton)
@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
  *
  * @package GenshinTeam\Models
  */
-class User
+class UserModel
 {
     /**
      * Instance PDO pour accéder à la base de données.

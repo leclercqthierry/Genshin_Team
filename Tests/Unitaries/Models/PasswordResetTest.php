@@ -2,6 +2,7 @@
 declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
+use GenshinTeam\Entities\User;
 use GenshinTeam\Models\PasswordReset;
 use GenshinTeam\Utils\MailSenderInterface;
 use PHPUnit\Framework\TestCase;
@@ -205,4 +206,92 @@ class PasswordResetTest extends TestCase
 
         $reset->callSendResetEmail('user@example.com', 'token123');
     }
+
+    /**
+     * Teste que la méthode isTokenExpired retourne true lorsque verifyToken retourne null.
+     *
+     * @covers \GenshinTeam\Models\PasswordReset::isTokenExpired
+     */
+    public function testTokenIsExpiredWhenVerifyReturnsNull(): void
+    {
+        $resetModel = $this->getMockBuilder(PasswordReset::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['verifyToken'])
+            ->getMock();
+
+        $resetModel->method('verifyToken')->willReturn(null);
+
+        $this->assertTrue($resetModel->isTokenExpired('some-token'));
+    }
+
+    /**
+     * Teste que la méthode isTokenExpired retourne false lorsque verifyToken retourne une adresse email.
+     *
+     * @covers \GenshinTeam\Models\PasswordReset::isTokenExpired
+     */
+    public function testTokenIsNotExpiredWhenVerifyReturnsEmail(): void
+    {
+        $resetModel = $this->getMockBuilder(PasswordReset::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['verifyToken'])
+            ->getMock();
+
+        $resetModel->method('verifyToken')->willReturn('user@example.com');
+
+        $this->assertFalse($resetModel->isTokenExpired('some-token'));
+    }
+
+    /**
+     * Teste que findUserByToken retourne null si verifyToken retourne null.
+     *
+     * @covers \GenshinTeam\Models\PasswordReset::findUserByToken
+     */
+    public function testFindUserByTokenReturnsNullIfTokenIsInvalid(): void
+    {
+        $model = $this->getMockBuilder(PasswordReset::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['verifyToken'])
+            ->getMock();
+
+        $model->method('verifyToken')->willReturn(null);
+
+        $result = $model->findUserByToken('invalid-token');
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * Teste que findUserByToken retourne un User si verifyToken retourne une adresse email.
+     *
+     * @covers \GenshinTeam\Models\PasswordReset::findUserByToken
+     */
+    public function testFindUserByTokenReturnsUserIfTokenIsValid(): void
+    {
+        $stmt = $this->createMock(PDOStatement::class);
+
+        $this->pdoMock->method('prepare')->willReturn($stmt);
+        $stmt->method('execute')->with([':email' => 'user@example.com']);
+        $stmt->method('fetch')->willReturn([
+            'id_user'  => '1',
+            'nickname' => 'User',
+            'email'    => 'user@example.com',
+            'password' => 'hashedpassword',
+            'id_role'  => '2',
+        ]);
+
+        $mailerMock = $this->createMock(MailSenderInterface::class); // redéfini juste pour ce test
+
+        $model = $this->getMockBuilder(PasswordReset::class)
+            ->setConstructorArgs([$this->loggerMock, $mailerMock]) // utilisation de mocks indépendants
+            ->onlyMethods(['verifyToken'])
+            ->getMock();
+
+        $model->method('verifyToken')->willReturn('user@example.com');
+
+        $result = $model->findUserByToken('valid-token');
+
+        $this->assertInstanceOf(User::class, $result);
+        $this->assertSame('user@example.com', $result->getEmail());
+    }
+
 }

@@ -1,6 +1,7 @@
 /**
  * Menu burger
- * @description Gère l'affichage du menu burger sur mobile
+ * @description Gère l'affichage du menu burger sur mobile et l'animation des barres du menu
+ * L'animation transforme les barres en croix lors de l'ouverture du menu
  */
 
 /* Déclaration des constantes */

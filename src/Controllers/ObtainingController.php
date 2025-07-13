@@ -82,15 +82,6 @@ class ObtainingController extends AbstractCrudController
     }
 
     /**
-     * Définit la route courante pour le contrôleur.
-     *
-     * @param string $route
-     * @return void
-     */
-    public function setCurrentRoute(string $route): void
-    {}
-
-    /**
      * Valide le champ "moyen d'obtention".
      *
      * @param string $obtaining
@@ -197,7 +188,8 @@ class ObtainingController extends AbstractCrudController
             'isEdit' => false,
         ]));
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/obtaining-validator.js"></script>
         ');
 
         $this->renderDefault();
@@ -320,7 +312,8 @@ class ObtainingController extends AbstractCrudController
             'id'     => $id,
         ]));
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/obtaining-validator.js"></script>
         ');
 
         $this->renderDefault();
@@ -447,6 +440,10 @@ class ObtainingController extends AbstractCrudController
             $this->addData('content', $this->renderer->render('obtaining/obtaining-list', [
                 'obtainings' => $all,
             ]));
+            $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/animation/list.js"></script>
+        ');
+
             $this->renderDefault();
         } catch (\Throwable $e) {
             $this->handleException($e);

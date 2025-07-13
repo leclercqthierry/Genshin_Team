@@ -2,21 +2,21 @@
 declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
-use GenshinTeam\Models\User;
+use GenshinTeam\Models\UserModel;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 require_once __DIR__ . '/../../../constants.php';
 
 /**
- * Teste les méthodes du modèle User liées à la base de données.
+ * Teste les méthodes du modèle UserModel liées à la base de données.
  *
- * @covers \GenshinTeam\Models\User
+ * @covers \GenshinTeam\Models\UserModel
  */
-class UserTest extends TestCase
+class UserModelTest extends TestCase
 {
-    /** @var User */
-    private User $user;
+    /** @var UserModel */
+    private UserModel $userModel;
 
     /** @var PDO */
     private PDO $pdo;
@@ -26,7 +26,7 @@ class UserTest extends TestCase
 
     /**
      * Initialise l'environnement avec une base SQLite temporaire,
-     * une instance User et un logger mocké.
+     * une instance UserModel et un logger mocké.
      *
      * @return void
      */
@@ -53,8 +53,8 @@ class UserTest extends TestCase
         // Logger simulé pour ErrorHandler
         $loggerMock = $this->createMock(LoggerInterface::class);
 
-        // Instance de User avec le logger mocké
-        $this->user = new User($loggerMock);
+        // Instance de UserModel avec le logger mocké
+        $this->userModel = new UserModel($loggerMock);
 
         // Vide le fichier de log si existant
         $this->errorLogFile = PROJECT_ROOT . '/logs/error.log';
@@ -70,7 +70,7 @@ class UserTest extends TestCase
      */
     public function testCreateUser(): void
     {
-        $result = $this->user->createUser('TestUser', 'test@example.com', 'hashed_password');
+        $result = $this->userModel->createUser('TestUser', 'test@example.com', 'hashed_password');
         $this->assertTrue($result);
 
         // Vérifie la présence en base
@@ -98,7 +98,7 @@ class UserTest extends TestCase
             VALUES ('ExistingUser', 'existing@example.com', 'hashed_password', 2)
         ");
 
-        $user = $this->user->getUserByNickname('ExistingUser');
+        $user = $this->userModel->getUserByNickname('ExistingUser');
         $this->assertNotNull($user);
         $this->assertSame('existing@example.com', $user['email']);
     }
@@ -115,7 +115,7 @@ class UserTest extends TestCase
             VALUES ('AnotherUser', 'another@example.com', 'hashed_password', 2)
         ");
 
-        $user = $this->user->getUserByEmail('another@example.com');
+        $user = $this->userModel->getUserByEmail('another@example.com');
         $this->assertNotNull($user);
         $this->assertSame('AnotherUser', $user['nickname']);
     }
@@ -131,7 +131,7 @@ class UserTest extends TestCase
 
         ob_start();
         try {
-            $this->user->getUserByEmail('nonexistent@example.com');
+            $this->userModel->getUserByEmail('nonexistent@example.com');
         } catch (\Throwable) {
             // Erreur attendue
         }
@@ -151,7 +151,7 @@ class UserTest extends TestCase
 
         ob_start();
         try {
-            $this->user->createUser('TestUser', 'test@example.com', 'hashed_password');
+            $this->userModel->createUser('TestUser', 'test@example.com', 'hashed_password');
         } catch (\Throwable) {
             // Erreur attendue
         }
@@ -172,7 +172,7 @@ class UserTest extends TestCase
 
         ob_start();
         try {
-            $this->user->getUserByNickname('NonExistentUser');
+            $this->userModel->getUserByNickname('NonExistentUser');
         } catch (\Throwable) {
             // Exception capturée intentionnellement
         }

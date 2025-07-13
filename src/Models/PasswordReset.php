@@ -5,6 +5,7 @@ namespace GenshinTeam\Models;
 
 use DateTime;
 use GenshinTeam\Connexion\Database;
+use GenshinTeam\Entities\User;
 use GenshinTeam\Utils\MailSenderInterface;
 use PDO;
 use Psr\Log\LoggerInterface;
@@ -83,6 +84,17 @@ class PasswordReset
     }
 
     /**
+     * Vérifie si un token de réinitialisation est expiré.
+     *
+     * @param string $token
+     * @return bool
+     */
+    public function isTokenExpired(string $token): bool
+    {
+        return $this->verifyToken($token) === null;
+    }
+
+    /**
      * Supprime un token de réinitialisation une fois utilisé.
      *
      * @param string $token
@@ -92,6 +104,27 @@ class PasswordReset
         $sql  = "DELETE FROM zell_password_resets WHERE token = :token";
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':token' => $token]);
+    }
+
+    /**
+     * Trouve un utilisateur par son token de réinitialisation.
+     *
+     * @param string $token
+     * @return User|null
+     */
+    public function findUserByToken(string $token): ?User
+    {
+        $email = $this->verifyToken($token);
+        if (! $email) {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare("SELECT * FROM zell_users WHERE email = :email");
+        $stmt->execute([':email' => $email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        /** @var array<string, string> $row */
+        return $row ? User::fromArray($row) : null;
     }
 
     /**

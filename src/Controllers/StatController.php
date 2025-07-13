@@ -82,15 +82,6 @@ class StatController extends AbstractCrudController
     }
 
     /**
-     * Définit la route courante pour le contrôleur.
-     *
-     * @param string $route
-     * @return void
-     */
-    public function setCurrentRoute(string $route): void
-    {}
-
-    /**
      * Valide le champ statistique.
      *
      * @param string $stat
@@ -196,7 +187,8 @@ class StatController extends AbstractCrudController
             'isEdit' => false,
         ]));
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/stat-validator.js"></script>
         ');
         $this->renderDefault();
     }
@@ -324,7 +316,8 @@ class StatController extends AbstractCrudController
             'id'     => $id,
         ]));
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/stat-validator.js"></script>
         ');
 
         $this->renderDefault();
@@ -448,6 +441,9 @@ class StatController extends AbstractCrudController
             $all = $this->model->getAll();
 
             $this->addData('title', 'Liste des statistiques');
+            $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/animation/list.js"></script>
+        ');
             $this->addData('content', $this->renderer->render('stats/stats-list', [
                 'stat' => $all,
             ]));

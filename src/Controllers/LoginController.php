@@ -4,7 +4,7 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Controllers\AbstractController;
-use GenshinTeam\Models\User;
+use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Traits\ExceptionHandlerTrait;
@@ -30,8 +30,8 @@ class LoginController extends AbstractController
     /** @var SessionManager Gestionnaire de session utilisateur. */
     protected SessionManager $session;
 
-    /** @var User Modèle métier utilisé pour interagir avec les données utilisateur. */
-    private User $userModel;
+    /** @var UserModel Modèle métier utilisé pour interagir avec les données utilisateur. */
+    private UserModel $userModel;
 
     /**
      * Initialise le contrôleur avec ses dépendances et configure la session.
@@ -40,16 +40,16 @@ class LoginController extends AbstractController
      * @param LoggerInterface         $logger          Logger PSR-3.
      * @param ErrorPresenterInterface $errorPresenter  Gestionnaire de rendu d'erreurs.
      * @param SessionManager          $session         Gestionnaire de session.
-     * @param User|null               $userModel       Modèle utilisateur (injectable pour les tests).
+     * @param UserModel|null               $userModel       Modèle utilisateur (injectable pour les tests).
      */
-    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?User $userModel = null)
+    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?UserModel $userModel = null)
     {
 
         parent::__construct($renderer, $session);
         $this->logger         = $logger;
         $this->errorPresenter = $errorPresenter;
         $this->session        = $session;
-        $this->userModel      = $userModel ?: new User($logger);
+        $this->userModel      = $userModel ?: new UserModel($logger);
 
         // Initialisation du compteur de tentatives de connexion
         $this->session->set('login_attempts', $this->session->get('login_attempts', 0));
@@ -108,8 +108,8 @@ class LoginController extends AbstractController
         $this->addData('title', 'Se Connecter');
         $this->addData('errors', $this->getErrors());
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
-            <script src="' . BASE_URL . '/public/assets/js/login-validator.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/login-validator.js"></script>
         ');
 
         // Passage du jeton CSRF, des erreurs et de la saisie précédente à la vue 'login'

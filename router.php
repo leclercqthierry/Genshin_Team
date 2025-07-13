@@ -53,6 +53,7 @@ $routes = [
     ''                 => 'IndexController',
     'login'            => 'LoginController',
     'forgot-password'  => 'ForgotPasswordController',
+    'reset-password'   => 'ResetPasswordController',
     'register'         => 'RegisterController',
     'logout'           => 'LogoutController',
     'admin'            => 'AdminController',

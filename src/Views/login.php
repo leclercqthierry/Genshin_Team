@@ -77,10 +77,14 @@
         <?php endif; ?>
     </div>
 
-    <input type="hidden" name="csrf_token" value="<?php if (is_string($_SESSION['csrf_token'])) {
-                                                          echo $_SESSION['csrf_token'];
-                                                  }
-                                                  ?>">
+    <input
+        type="hidden"
+        name="csrf_token"
+        value="<?php if (is_string($_SESSION['csrf_token'])) {
+                       echo htmlspecialchars($_SESSION['csrf_token']);
+               }
+               ?>"
+    >
 
     <a href="forgot-password" class="block text-(--font-color) hover:text-gray-400">
         mot de passe oublié

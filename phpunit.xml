@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit
-    bootstrap="vendor/autoload.php"
+    bootstrap="bootstrap.php"
     colors="true"
     testdox="true"
     displayDetailsOnTestsThatTriggerDeprecations="true"
@@ -14,6 +14,7 @@
             <directory>Tests/Integration</directory>
             <directory>Tests/Unitaries/Connexion</directory>
             <directory>Tests/Unitaries/Controllers</directory>
+            <directory>Tests/Unitaries/Entities</directory>
             <directory>Tests/Unitaries/Models</directory>
             <directory>Tests/Unitaries/Renderer</directory>
             <directory>Tests/Unitaries/Router</directory>

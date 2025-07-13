@@ -127,7 +127,7 @@
                 >Mentions légales</a
             >
         </footer>
-        <script src="<?php echo BASE_URL . '/public/assets/js/menu.js' ?>" defer></script>
+        <script src="<?php echo BASE_URL . '/public/assets/js/animation/menu.js' ?>" defer></script>
          <?php if (isset($data['scripts'])) {
                  echo $data['scripts'];
              }

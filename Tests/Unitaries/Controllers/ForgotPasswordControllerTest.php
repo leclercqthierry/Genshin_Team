@@ -26,8 +26,12 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
 
         $this->renderer = $this->createMock(Renderer::class);
         $this->renderer->method('render')->willReturnCallback(function (string $view, array $data = []) {
-            $output = '<h1>' . ($data['title'] ?? '') . '</h1>';
 
+            /** @var string $title */
+            $title  = $data['title'] ?? '';
+            $output = '<h1>' . $title . '</h1>';
+
+            /** @var array{errors?: array<string, array<string>>, success?: string} $data */
             if (isset($data['errors'])) {
                 foreach ($data['errors'] as $errorList) {
                     foreach ((array) $errorList as $msg) {
@@ -69,6 +73,7 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
         $this->controller->run();
         $output = ob_get_clean();
 
+        $this->assertNotFalse($output);
         $this->assertNotEmpty($output);
         $this->assertStringContainsString('Réinitialisation de mot de passe', $output);
     }
@@ -89,6 +94,7 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
         $this->controller->run();
         $output = ob_get_clean();
 
+        $this->assertNotFalse($output);
         $this->assertStringContainsString('Requête invalide', $output);
     }
 
@@ -107,6 +113,7 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
         $this->controller->run();
         $output = ob_get_clean();
 
+        $this->assertNotFalse($output);
         $this->assertStringContainsString("L'adresse email est requise", $output);
     }
 
@@ -125,6 +132,7 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
         $this->controller->run();
         $output = ob_get_clean();
 
+        $this->assertNotFalse($output);
         $this->assertStringContainsString("Veuillez saisir une adresse email valide", $output);
     }
 
@@ -153,6 +161,7 @@ final class ForgotPasswordControllerTest extends DatabaseTestCase
         $this->controller->run();
         $output = ob_get_clean();
 
+        $this->assertNotFalse($output);
         $this->assertStringContainsString("Si votre adresse est reconnue", $output);
     }
 

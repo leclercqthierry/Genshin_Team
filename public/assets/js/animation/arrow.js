@@ -1,5 +1,6 @@
 /**
- * @description Ajoute une flèche à droite des champs de saisie lorsqu'ils sont actifs
+ * @description Ajoute une flèche à droite des champs de saisie lorsqu'ils sont actifs qui sera animée horizontalement
+ * L'animation est déclenchée au focus et retirée au blur
  */
 
 document.querySelectorAll(".input-wrapper").forEach((wrapper) => {

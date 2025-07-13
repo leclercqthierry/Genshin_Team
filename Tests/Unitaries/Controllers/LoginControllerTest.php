@@ -3,7 +3,7 @@ declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\LoginController;
-use GenshinTeam\Models\User;
+use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -217,7 +217,6 @@ class LoginControllerTest extends TestCase
             'password'   => 'wrong',
         ];
 
-        // User::getUserByNickname() renverra null → simulate login échec
         $refClass = new ReflectionClass($controller);
         $method   = $refClass->getMethod('handleLogin');
         $method->setAccessible(true);
@@ -239,7 +238,7 @@ class LoginControllerTest extends TestCase
         $session = new SessionManager();
         $session->set('csrf_token', 'abc');
 
-        $userMock = $this->createMock(\GenshinTeam\Models\User::class);
+        $userMock = $this->createMock(UserModel::class);
         $userMock->method('getUserByNickname')->willReturn([
             'password' => password_hash('secret', PASSWORD_DEFAULT),
             'id_role'  => 2,
@@ -325,7 +324,7 @@ class LoginControllerTest extends TestCase
      * Teste que la méthode handleLogin capture correctement les exceptions de type Throwable.
      *
      * Ce test simule une requête POST avec des données de connexion valides et un jeton CSRF valide.
-     * Il utilise un mock du modèle User configuré pour lancer une exception lors de l'appel à getUserByNickname().
+     * Il utilise un mock du modèle UserModel configuré pour lancer une exception lors de l'appel à getUserByNickname().
      * Le contrôleur personnalisé surcharge handleException() pour indiquer si une exception a été capturée.
      * Le test vérifie que le bloc catch a bien été exécuté en s'assurant que la propriété $caught vaut true.
      *
@@ -343,7 +342,7 @@ class LoginControllerTest extends TestCase
         ];
 
         // Faux modèle qui déclenche une exception sur getUserByNickname()
-        $userModel = $this->createMock(User::class);
+        $userModel = $this->createMock(UserModel::class);
         $userModel->method('getUserByNickname')
             ->willThrowException(new \RuntimeException('Erreur simulée'));
 

@@ -4,7 +4,7 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Controllers\AbstractController;
-use GenshinTeam\Models\User;
+use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Traits\ExceptionHandlerTrait;
@@ -17,7 +17,7 @@ use Psr\Log\LoggerInterface;
  *
  * Ce contrôleur gère l'inscription des utilisateurs.
  * Il initialise la session, génère un jeton CSRF pour sécuriser le formulaire d'inscription,
- * et permet de valider et de créer un nouvel utilisateur en base de données, via le modèle User.
+ * et permet de valider et de créer un nouvel utilisateur en base de données, via le modèle UserModel.
  * En cas d'erreur, le formulaire est réaffiché avec les erreurs et les valeurs précédemment saisies.
  *
  * @package GenshinTeam\Controllers
@@ -29,8 +29,8 @@ class RegisterController extends AbstractController
     /** @var SessionManager */
     protected SessionManager $session;
 
-    /** @var User */
-    private User $userModel;
+    /** @var UserModel */
+    private UserModel $userModel;
 
     /**
      * Constructeur du contrôleur.
@@ -41,9 +41,9 @@ class RegisterController extends AbstractController
      * @param LoggerInterface         $logger          Enregistreur PSR-3 des erreurs.
      * @param ErrorPresenterInterface $errorPresenter  Gestionnaire d'affichage des erreurs.
      * @param SessionManager          $session         Gestionnaire de session utilisateur.
-     * @param User|null               $userModel       Modèle User (injectable pour tests).
+     * @param UserModel|null               $userModel       Modèle UserModel (injectable pour tests).
      */
-    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?User $userModel = null)
+    public function __construct(Renderer $renderer, LoggerInterface $logger, ErrorPresenterInterface $errorPresenter, SessionManager $session, ?UserModel $userModel = null)
     {
         // Démarrage de la session nécessaire pour gérer les données utilisateur et le jeton CSRF
         parent::__construct($renderer, $session);
@@ -52,7 +52,7 @@ class RegisterController extends AbstractController
         $this->session        = $session;
         $this->session->start();
 
-        $this->userModel = $userModel ?: new User($logger);
+        $this->userModel = $userModel ?: new UserModel($logger);
 
     }
 
@@ -118,8 +118,8 @@ class RegisterController extends AbstractController
             ]
         ));
         $this->addData('scripts', '
-            <script src="' . BASE_URL . '/public/assets/js/arrow.js"></script>
-            <script src="' . BASE_URL . '/public/assets/js/register-validator.js"></script>
+            <script src="' . BASE_URL . '/public/assets/js/animation/arrow.js"></script>
+            <script type="module" src="' . BASE_URL . '/public/assets/js/register-validator.js"></script>
         ');
 
         try {

@@ -3,7 +3,7 @@ declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\RegisterController;
-use GenshinTeam\Models\User;
+use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -33,6 +33,10 @@ class RegisterControllerTest extends TestCase
      */
     protected function setUp(): void
     {
+        if (! defined('BASE_URL')) {
+            define('BASE_URL', 'http://localhost');
+        }
+
         // Simule une base de données avec une table utilisateurs
         $pdo = new PDO('sqlite::memory:');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -89,10 +93,10 @@ class RegisterControllerTest extends TestCase
      * Crée une instance mockée de RegisterController avec redirection désactivée.
      *
      * @param SessionManager|null $session
-     * @param User|null $userModel
+     * @param UserModel|null $userModel
      * @return RegisterController
      */
-    private function getController(?SessionManager $session = null, ?User $userModel = null): RegisterController
+    private function getController(?SessionManager $session = null, ?UserModel $userModel = null): RegisterController
     {
         $renderer  = new Renderer($this->viewPath);
         $logger    = $this->createMock(LoggerInterface::class);
@@ -184,7 +188,7 @@ class RegisterControllerTest extends TestCase
         $session->set('csrf_token', 'abc');
 
         // Simule un utilisateur déjà existant dans la base
-        $userMock = $this->getMockBuilder(User::class)
+        $userMock = $this->getMockBuilder(UserModel::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname'])
             ->getMock();
@@ -220,7 +224,7 @@ class RegisterControllerTest extends TestCase
         $session->set('csrf_token', 'abc');
 
         // Simule un pseudo inexistant mais un email déjà utilisé
-        $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
+        $userMock = $this->getMockBuilder(UserModel::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail'])
             ->getMock();
@@ -257,7 +261,7 @@ class RegisterControllerTest extends TestCase
         $session->set('csrf_token', 'abc');
 
         // Simule une validation OK mais un échec en base
-        $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
+        $userMock = $this->getMockBuilder(UserModel::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail', 'createUser'])
             ->getMock();
@@ -298,7 +302,7 @@ class RegisterControllerTest extends TestCase
         $session->set('csrf_token', 'abc');
 
         // Simule une validation OK et un createUser qui retourne true
-        $userMock = $this->getMockBuilder(\GenshinTeam\Models\User::class)
+        $userMock = $this->getMockBuilder(UserModel::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getUserByNickname', 'getUserByEmail', 'createUser'])
             ->getMock();
@@ -368,7 +372,7 @@ class RegisterControllerTest extends TestCase
     /**
      * Teste la gestion des exceptions dans la méthode handleRegister().
      *
-     * Ce test simule un scénario dans lequel le modèle User déclenche une exception
+     * Ce test simule un scénario dans lequel le modèle UserModel déclenche une exception
      * lors de l'appel à getUserByNickname(), ce qui force le contrôleur à capturer
      * cette exception dans un bloc try/catch et à invoquer handleException().
      *
@@ -384,7 +388,7 @@ class RegisterControllerTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = 'POST';
 
         // Faux modèle qui déclenche une exception
-        $userModel = $this->createMock(User::class);
+        $userModel = $this->createMock(UserModel::class);
         $userModel->method('getUserByNickname')
             ->willThrowException(new RuntimeException('Erreur simulée'));
 

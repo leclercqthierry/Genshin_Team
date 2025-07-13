@@ -169,6 +169,10 @@ class FarmDaysController extends AbstractCrudController
     private function showAddForm(): void
     {
         $this->addData('title', 'Ajouter des jours de farm');
+        $this->addData('scripts', '
+            <script type="module" src="' . BASE_URL . '/public/assets/js/farm-days-validator.js"></script>
+        ');
+
         $this->addData('content', $this->renderer->render('farm-days/add-farm-days', [
             'errors' => $this->getErrors(),
             'old'    => $this->getOld(),
@@ -289,6 +293,10 @@ class FarmDaysController extends AbstractCrudController
         ];
 
         $this->addData('title', 'Éditer les jours de farm');
+        $this->addData('scripts', '
+            <script type="module" src="' . BASE_URL . '/public/assets/js/farm-days-validator.js"></script>
+        ');
+
         $this->addData('content', $this->renderer->render('farm-days/add-farm-days', [
             'errors' => $this->getErrors(),
             'old'    => $old,
@@ -396,6 +404,9 @@ class FarmDaysController extends AbstractCrudController
             $all = $this->model->getAll();
 
             $this->addData('title', 'Liste des jours de farm');
+            $this->addData('scripts', '
+            <script src="' . BASE_URL . '/public/assets/js/animation/list.js"></script>
+        ');
 
             $this->addData('content', $this->renderer->render('farm-days/farm-days-list', [
                 'farmDays' => $all,

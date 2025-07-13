@@ -15,7 +15,7 @@
 <?php if (empty($items)): ?>
 <p><?php echo htmlspecialchars($emptyMessage) ?></p>
 <?php else: ?>
-<ul class="mb-5 flex flex-col gap-2">
+<ul class="mb-5 flex flex-col gap-2 list">
     <?php foreach ($items as $row): ?>
     <li
         class="flex items-center justify-between gap-2 rounded bg-gray-100 px-4 py-2"
@@ -24,7 +24,7 @@
             <?php echo htmlspecialchars((string) $row[$nameField]) ?>
         </span>
         <span class="text-xs text-(--bg-primary)">
-            ID:                                                                                           <?php echo $row[$idField] ?>
+            ID:                                                                                                          <?php echo $row[$idField] ?>
         </span>
     </li>
     <?php endforeach; ?>
