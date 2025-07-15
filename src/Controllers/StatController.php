@@ -5,9 +5,9 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Models\Stat;
+use GenshinTeam\Models\StatModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
@@ -24,7 +24,6 @@ use Psr\Log\LoggerInterface;
 
 class StatController extends AbstractCrudController
 {
-    use ExceptionHandlerTrait;
     /**
      * Constructeur principal du contrôleur.
      *
@@ -32,21 +31,21 @@ class StatController extends AbstractCrudController
      * @param LoggerInterface $logger Logger PSR-3 pour journalisation.
      * @param ErrorPresenterInterface $errorPresenter Présentateur d'erreurs.
      * @param SessionManager $session Gestionnaire de session pour l’état utilisateur.
-     * @param Stat|null $statModel (optionnel) instance du modèle injectée pour testabilité.
+     * @param StatModel|null $statModel (optionnel) instance du modèle injectée pour testabilité.
      */
     public function __construct(
         Renderer $renderer,
         LoggerInterface $logger,
         ErrorPresenterInterface $errorPresenter,
         SessionManager $session,
-        ?Stat $statModel = null
+        ?StatModel $statModel = null
     ) {
         parent::__construct(
             $renderer,
             $logger,
             $errorPresenter,
             $session,
-            $statModel ?: new Stat(Database::getInstance(), $logger)
+            $statModel ?: new StatModel(Database::getInstance(), $logger)
         );
 
     }

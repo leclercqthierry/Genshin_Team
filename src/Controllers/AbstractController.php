@@ -5,6 +5,7 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
+use GenshinTeam\Traits\ExceptionHandlerTrait;
 
 /**
  * Class AbstractController
@@ -20,6 +21,9 @@ use GenshinTeam\Session\SessionManager;
  */
 abstract class AbstractController
 {
+
+    use ExceptionHandlerTrait;
+
     /**
      * Tableau contenant les données à transmettre aux vues.
      *
@@ -228,5 +232,55 @@ abstract class AbstractController
      * @return void
      */
     abstract public function setCurrentRoute(string $route): void;
+
+    /**
+     * Affiche une page d’erreur 403 avec un message personnalisé.
+     *
+     * Cette méthode définit le code HTTP de la réponse sur 403,
+     * ajoute un titre et un contenu d'erreur à afficher dans la vue.
+     * Elle est utilisée pour interdire l’accès à une ressource en cas d’absence de permission.
+     *
+     * @param string $message Message d’erreur à afficher à l’utilisateur. Par défaut : accès interdit.
+     * @return void
+     */
+    protected function renderForbidden(string $message = "Vous n'avez pas accès à cette page."): void
+    {
+        http_response_code(403);
+        $this->addData('title', 'Accès interdit');
+        $this->addData('content', '<div role="alert">' . htmlspecialchars($message) . '</div>');
+
+        try {
+            $this->renderDefault();
+        } catch (\Throwable $e) {
+            $this->handleException($e);
+        }
+    }
+
+    /**
+     * Vérifie que l'utilisateur connecté dispose des droits administrateur.
+     *
+     * Cette méthode récupère les informations de session de l’utilisateur
+     * et contrôle que son rôle correspond au rôle administrateur (`id_role === 1`).
+     * En cas d’accès non autorisé ou d’utilisateur absent, elle appelle `renderForbidden()`
+     * et empêche la suite du traitement.
+     *
+     * @return bool `true` si l'accès est autorisé, `false` sinon.
+     */
+    protected function checkAdminAccess(): bool
+    {
+        $user = $this->session->get('user');
+
+        if (! is_array($user)) {
+            $this->renderForbidden("Vous n'avez pas les droits pour accéder à cette page.");
+            return false;
+        }
+
+        if (($user['id_role'] ?? null) !== 1) {
+            $this->renderForbidden();
+            return false;
+        }
+
+        return true;
+    }
 
 }

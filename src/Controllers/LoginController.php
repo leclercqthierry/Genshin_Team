@@ -4,10 +4,10 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Controllers\AbstractController;
+use GenshinTeam\Entities\User;
 use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -25,7 +25,6 @@ use Psr\Log\LoggerInterface;
  */
 class LoginController extends AbstractController
 {
-    use ExceptionHandlerTrait;
 
     /** @var SessionManager Gestionnaire de session utilisateur. */
     protected SessionManager $session;
@@ -182,8 +181,8 @@ class LoginController extends AbstractController
         }
 
         // Authentification réussie
-        /** @var array{password: string, id_role: int} $user */
-        $this->loginUser($user, $nickname);
+        /** @var array{id_user: int, nickname: string, email: string, password: string, id_role: int} $user */
+        $this->loginUser($user);
     }
 
     /**
@@ -274,13 +273,18 @@ class LoginController extends AbstractController
     /**
      * Connecte l'utilisateur et effectue la redirection.
      *
-     * @param array{password: string, id_role: int, ...} $user
+     * @param array{id_user: int, nickname: string, email: string, password: string, id_role: int} $user
      */
-    private function loginUser(array $user, string $nickname): void
+    private function loginUser(array $user): void
     {
+        $userEntity = User::fromDatabase($user); // Instanciation claire
+
         session_regenerate_id(true);
-        $this->session->set('user', $nickname);
-        $this->session->set('id_role', $user['id_role']);
+        $this->session->set('user', [
+            'nickname' => $userEntity->getNickname(),
+            'id_role'  => $userEntity->getRole(),
+        ]);
+
         $this->session->set('login_attempts', 0);
         $this->session->set('csrf_token', bin2hex(random_bytes(32)));
         $this->redirect('index');

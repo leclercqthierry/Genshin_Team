@@ -81,7 +81,7 @@ class UserModel
      *
      * @param string $nickname Le pseudo de l'utilisateur.
      *
-     * @return array<string, mixed>|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
+     * @return array{id_user: int, nickname: string, email: string, password: string, id_role: int}|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
      */
     public function getUserByNickname(string $nickname): ?array
     {
@@ -89,7 +89,7 @@ class UserModel
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':nickname' => $nickname]);
 
-        /** @var array<string, mixed>|false $user */
+        /** @var array{id_user: int, nickname: string, email: string, password: string, id_role: int}|null|false $user */
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         return $user !== false ? $user : null;
     }
@@ -102,7 +102,7 @@ class UserModel
      *
      * @param string $email L'email de l'utilisateur.
      *
-     * @return array<string, mixed>|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
+     * @return array{id_user: int, nickname: string, email: string, password: string, id_role: int}|null les informations de l'utilisateur, ou null si aucun utilisateur n'est trouvé.
      */
     public function getUserByEmail(string $email): ?array
     {
@@ -110,7 +110,7 @@ class UserModel
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':email' => $email]);
 
-        /** @var array<string, mixed>|false $user */
+        /** @var array{id_user: int, nickname: string, email: string, password: string, id_role: int}|null|false $user */
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         return $user !== false ? $user : null;
     }

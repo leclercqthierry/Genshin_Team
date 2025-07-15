@@ -8,7 +8,6 @@ use GenshinTeam\Entities\User;
 use GenshinTeam\Models\PasswordReset;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Traits\HandleFormValidation;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use GenshinTeam\Utils\PhpMailerSender;
@@ -23,8 +22,6 @@ use Psr\Log\LoggerInterface;
  */
 class ResetPasswordController extends AbstractController
 {
-
-    use ExceptionHandlerTrait;
     use HandleFormValidation;
 
     private PasswordReset $resetModel;

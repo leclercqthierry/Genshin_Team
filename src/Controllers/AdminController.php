@@ -67,21 +67,8 @@ class AdminController extends AbstractController
      */
     protected function handleRequest(): void
     {
-        $user   = $this->session->get('user');    // Récupère l'utilisateur courant
-        $idRole = $this->session->get('id_role'); // Récupère le rôle (1 = admin)
-
         // Vérifie que l'utilisateur est bien connecté et a un rôle d'administrateur
-        if ($user === null || $idRole !== 1) {
-            http_response_code(403); // Interdit l'accès
-
-            $this->addData('title', 'Accès interdit');
-            $this->addData('content', '<div role="alert">Vous n\'avez pas accès à cette page.</div>');
-            try {
-                $this->renderDefault();
-            } catch (\Throwable $e) {
-                $this->handleException($e);
-            }
-
+        if (! $this->checkAdminAccess()) {
             return;
         }
 

@@ -57,14 +57,14 @@ class UserTest extends TestCase
     public function testFromArray(): void
     {
         $data = [
-            'id_user'  => '3',
+            'id_user'  => 3,
             'nickname' => 'Alix',
             'email'    => 'alix@example.com',
             'password' => 'secret',
-            'id_role'  => '2',
+            'id_role'  => 2,
         ];
 
-        $user = User::fromArray($data);
+        $user = User::fromDatabase($data);
 
         $this->assertSame(3, $user->getId());
         $this->assertSame('Alix', $user->getNickname());

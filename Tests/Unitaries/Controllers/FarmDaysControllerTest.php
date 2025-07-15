@@ -3,7 +3,7 @@ declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\FarmDaysController;
-use GenshinTeam\Models\FarmDays;
+use GenshinTeam\Models\FarmDaysModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -23,7 +23,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleAddValid(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->expects($this->once())->method('add')->with('Lundi/Mardi')->willReturn(true);
 
         $controller = $this->getController($model);
@@ -43,7 +43,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleAddFailure(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->expects($this->once())->method('add')->with('Lundi/Mardi')->willReturn(false);
 
         $controller = $this->getController($model);
@@ -69,7 +69,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleAddInvalidDaySetsFieldError(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->expects($this->never())->method('add');
 
         $controller = $this->getController($model);
@@ -96,7 +96,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      *
      * Ce test garantit que, lorsqu'une exception est levée depuis `handleCrudAdd()`, elle est
      * correctement capturée par le bloc `catch (\Throwable $e)` de `handleAdd()`.
-     * Une sous-classe anonyme de `StatController` redéfinit `handleCrudAdd()` pour y injecter
+     * Une sous-classe anonyme de `FarmDaysController` redéfinit `handleCrudAdd()` pour y injecter
      * une exception déclenchée volontairement.
      *
      * Aucune assertion n'est nécessaire ici, car l'objectif est de couvrir le bloc `catch` et
@@ -112,7 +112,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = new FarmDays(Database::getInstance(), $logger);
+        $model          = new FarmDaysModel(Database::getInstance(), $logger);
 
         $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
         {
@@ -138,7 +138,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleEditValid(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
         $model->expects($this->once())->method('update')->with(1, 'Lundi/Mardi')->willReturn(true);
 
@@ -164,7 +164,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleEditEmptyDaysShowsValidationError(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => '']);
 
         $controller = $this->getController($model);
@@ -209,7 +209,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = new FarmDays(Database::getInstance(), $logger);
+        $model          = new FarmDaysModel(Database::getInstance(), $logger);
 
         $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
         {
@@ -244,7 +244,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testProcessEditFailure(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('update')->with(1, 'Lundi/Mardi')->willReturn(false);
 
         $controller = $this->getController($model);
@@ -271,7 +271,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleDeleteValid(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
         $model->expects($this->once())->method('delete')->with(1)->willReturn(true);
 
@@ -296,7 +296,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testHandleDeleteFailure(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi']);
         $model->expects($this->once())->method('delete')->with(1)->willReturn(false);
 
@@ -326,7 +326,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      * Vérifie que le bloc `catch` de la méthode `handleDelete()` est effectivement exécuté
      * lorsqu'une exception est levée depuis `handleCrudDelete()`.
      *
-     * Ce test instancie une sous-classe anonyme de `StatController` dans laquelle
+     * Ce test instancie une sous-classe anonyme de `FarmDaysController` dans laquelle
      * la méthode `handleCrudDelete()` est volontairement redéfinie pour lancer une
      * exception. Cela permet de s'assurer que le `catch (\Throwable $e)` dans
      * `handleDelete()` est bien activé et donc couvert par l'outil de couverture de code.
@@ -342,7 +342,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = new FarmDays(Database::getInstance(), $logger);
+        $model          = new FarmDaysModel(Database::getInstance(), $logger);
 
         $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends FarmDaysController
         {
@@ -365,7 +365,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
     /**
      * Teste l'affichage du formulaire de confirmation de suppression.
      *
-     * Ce test utilise un mock du modèle FarmDays pour simuler le retour d’un enregistrement
+     * Ce test utilise un mock du modèle FarmDaysModel pour simuler le retour d’un enregistrement
      * avec l’identifiant 1. Il vérifie que :
      * - La méthode privée showDeleteConfirmForm peut être invoquée via réflexion.
      * - Une sortie HTML est générée.
@@ -375,7 +375,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testShowDeleteConfirmForm(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(1)->willReturn(['id_farm_days' => 1, 'days' => 'Lundi/Mardi']);
         $controller = $this->getController($model);
         $controller->setCurrentRoute('delete-farm-days');
@@ -395,7 +395,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      * Teste que la méthode showDeleteConfirmForm appelle showDeleteSelectForm
      * lorsqu'un enregistrement avec l'ID fourni est introuvable.
      *
-     * Ce test utilise un mock de FarmDays retournant `null` pour simuler
+     * Ce test utilise un mock de FarmDaysModel retournant `null` pour simuler
      * un ID inexistant. Il vérifie ensuite que showDeleteSelectForm est
      * bien invoqué et qu'une erreur globale est enregistrée.
      *
@@ -403,7 +403,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testShowDeleteConfirmFormNotFound(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('get')->with(99)->willReturn(null); // Simule un ID inexistant
         $controller = $this->getController($model);
         $controller->setCurrentRoute('delete-farm-days');
@@ -443,7 +443,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
      */
     public function testShowList(): void
     {
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('getAll')->willReturn([['id_farm_days' => 1, 'days' => 'Lundi']]);
         $controller = $this->getController($model);
         $controller->setCurrentRoute('farm-days-list');
@@ -480,7 +480,7 @@ class FarmDaysControllerTest extends FarmDaysControllerTestCase
         $session        = new SessionManager();
 
         // Faux modèle qui lève une exception sur getAll()
-        $model = $this->createMock(FarmDays::class);
+        $model = $this->createMock(FarmDaysModel::class);
         $model->method('getAll')
             ->willThrowException(new \RuntimeException('Erreur simulée'));
 

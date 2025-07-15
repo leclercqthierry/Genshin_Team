@@ -240,6 +240,9 @@ class LoginControllerTest extends TestCase
 
         $userMock = $this->createMock(UserModel::class);
         $userMock->method('getUserByNickname')->willReturn([
+            'id_user'  => 1,
+            'nickname' => 'Jean',
+            'email'    => 'test@live.fr',
             'password' => password_hash('secret', PASSWORD_DEFAULT),
             'id_role'  => 2,
         ]);
@@ -247,7 +250,9 @@ class LoginControllerTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = 'POST';
         $_POST                     = [
             'csrf_token' => 'abc',
+            'id_user'    => 1,
             'nickname'   => 'Jean',
+            'email'      => 'test@live.fr',
             'password'   => 'secret',
         ];
 
@@ -271,8 +276,12 @@ class LoginControllerTest extends TestCase
 
         // Vérifications post-authentification
         $this->assertSame(0, $session->get('login_attempts'));
-        $this->assertSame('Jean', $session->get('user'));
-        $this->assertSame(2, $session->get('id_role'));
+        $user = $session->get('user');
+        $this->assertIsArray($user); // assure que c’est bien un tableau
+
+        $this->assertSame('Jean', $user['nickname']);
+        $this->assertSame(2, $user['id_role']);
+
         $this->assertNotEmpty($session->get('csrf_token'));
     }
 

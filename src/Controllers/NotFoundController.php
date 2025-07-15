@@ -5,7 +5,6 @@ namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
@@ -20,7 +19,6 @@ use Psr\Log\LoggerInterface;
  */
 class NotFoundController extends AbstractController
 {
-    use ExceptionHandlerTrait;
 
     /**
      * Gestionnaire de session, redéclaré ici pour manipulation locale.

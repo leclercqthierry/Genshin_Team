@@ -4,6 +4,7 @@ declare (strict_types = 1);
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\ObtainingController;
 use GenshinTeam\Models\Obtaining;
+use GenshinTeam\Models\ObtainingModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -31,7 +32,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     private function assertHandleAddOutcome(bool $expectedSuccess): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->expects($this->once())
             ->method('add')
             ->with('Nouveau moyen')
@@ -86,7 +87,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     private function assertInvalidObtainingInput(string $input, string $expectedErrorMessage): void
     {
-        $model      = $this->createMock(Obtaining::class);
+        $model      = $this->createMock(ObtainingModel::class);
         $controller = $this->getController($model);
         $controller->setCurrentRoute('add-obtaining');
 
@@ -162,7 +163,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     public function testHandleAddValidationFailureWithNonUniqueObtaining(): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('existsByName')->with('Doublon')->willReturn(true); // Simule que "Doublon" existe déjà
         $model->method('add')->willReturn(false);                          // L'ajout ne se fera pas
 
@@ -199,7 +200,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     private function assertHandleEditOutcome(bool $expectedSuccess): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('get')
             ->with(1)
             ->willReturn(['id_obtaining' => 1, 'name' => 'Ancien moyen']);
@@ -256,7 +257,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     public function testHandleEditValidationFailure(): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('get')
             ->with(1)
             ->willReturn(['id_obtaining' => 1, 'name' => 'Ancien moyen']);
@@ -296,7 +297,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = new Obtaining(Database::getInstance(), $logger);
+        $model          = new ObtainingModel(Database::getInstance(), $logger);
 
         $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends ObtainingController
         {
@@ -395,7 +396,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
     public function testShowEditSelectForm(): void
     {
         // Création d'un mock de Obtaining avec une valeur de retour attendue
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('getAll')->willReturn([
             ['id_obtaining' => 1, 'name' => 'obt1'],
         ]);
@@ -425,7 +426,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
         $_POST['edit_id'] = 42;
 
         // Mock du modèle retournant null pour ID inexistant
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('get')->with(42)->willReturn(null);
 
         // Mock du contrôleur pour intercepter l’appel à showEditSelectForm()
@@ -455,7 +456,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      *
      * Ce test :
      * - Simule une requête POST de suppression avec confirmation
-     * - Mock le modèle Obtaining pour que la méthode `delete` retourne true
+     * - Mock le modèle ObtainingModel pour que la méthode `delete` retourne true
      * - Mock le Renderer pour afficher un message de succès
      * - Instancie le contrôleur avec les dépendances nécessaires
      * - Appelle la méthode privée handleDelete via Reflection
@@ -468,7 +469,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
             'confirm_delete' => 1,
         ]);
 
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('delete')->with(1)->willReturn(true);
 
         $renderer = $this->createMock(Renderer::class);
@@ -505,7 +506,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     protected function assertProcessDeleteOutcome(bool $deletionSuccess, ?string $expectedOutput = null, bool $expectFallback = false): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('delete')->with(1)->willReturn($deletionSuccess);
 
         $renderer = $this->createMock(Renderer::class);
@@ -582,7 +583,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
         bool $expectFallback = false,
         ?string $expectedRender = null
     ): void {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('get')->with($id)->willReturn($record);
 
         $renderer = $this->createMock(Renderer::class);
@@ -716,7 +717,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      * Construit un mock de contrôleur pour showList avec configuration selon le scénario.
      */
     private function buildControllerForShowList(
-        Obtaining $model,
+        ObtainingModel $model,
         ?Renderer $renderer = null,
         bool $expectRenderDefault = false,
         ? \Throwable $expectHandleException = null
@@ -771,13 +772,13 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      * la liste des moyens d'obtention.
      *
      * Ce test :
-     * - Mock le modèle Obtaining pour retourner une liste prédéfinie
+     * - Mock le modèle ObtainingModel pour retourner une liste prédéfinie
      * - Mock le Renderer pour capturer le rendu avec les bonnes données
      * - Assure que le rendu contient bien un élément avec le nom attendu
      */
     public function testShowList(): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('getAll')->willReturn([
             ['id_obtaining' => 1, 'name' => 'obt1'],
         ]);
@@ -819,7 +820,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
     {
         $exception = new \RuntimeException('BOOM');
 
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('getAll')->willThrowException($exception);
 
         $controller = $this->buildControllerForShowList($model, null, expectHandleException: $exception);
@@ -840,7 +841,7 @@ class ObtainingControllerTest extends ObtainingControllerTestCase
      */
     public function testShowDeleteSelectFormRendersStatSelection(): void
     {
-        $model = $this->createMock(Obtaining::class);
+        $model = $this->createMock(ObtainingModel::class);
         $model->method('getAll')->willReturn([
             ['id_stat' => 1, 'name' => 'obt1'],
             ['id_stat' => 2, 'name' => 'obt2'],

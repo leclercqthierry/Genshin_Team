@@ -21,7 +21,7 @@ trait HandleFormValidation
      *
      * @return void
      */
-    private function showValidationError(string $field, $value, Validator $validator, string $errorKey, callable $formCallback): void
+    protected function showValidationError(string $field, $value, Validator $validator, string $errorKey, callable $formCallback): void
     {
         $this->addError($field, $validator->getErrors()[$errorKey] ?? 'Erreur de validation');
         $this->setOld([$field => $value]);

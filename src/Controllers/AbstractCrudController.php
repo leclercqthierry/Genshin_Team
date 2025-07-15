@@ -6,13 +6,11 @@ namespace GenshinTeam\Controllers;
 use GenshinTeam\Models\CrudModelInterface;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use Psr\Log\LoggerInterface;
 
 abstract class AbstractCrudController extends AbstractController
 {
-    use ExceptionHandlerTrait;
 
     /** @var LoggerInterface Logger pour journaliser les erreurs ou événements métier.
      */
@@ -52,6 +50,10 @@ abstract class AbstractCrudController extends AbstractController
      */
     public function handleRequest(): void
     {
+        if (! $this->checkAdminAccess()) {
+            return;
+        }
+
         switch ($this->currentRoute) {
             case $this->getAddRoute():
                 $this->handleAdd();

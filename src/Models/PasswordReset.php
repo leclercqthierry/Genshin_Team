@@ -123,8 +123,8 @@ class PasswordReset
         $stmt->execute([':email' => $email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        /** @var array<string, string> $row */
-        return $row ? User::fromArray($row) : null;
+        /** @var array{id_user: int, nickname: string, email: string, password: string, id_role: int}|null $row */
+        return $row ? User::fromDatabase($row) : null;
     }
 
     /**

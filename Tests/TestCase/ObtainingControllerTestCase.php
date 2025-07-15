@@ -6,6 +6,7 @@ namespace Tests\TestCase;
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\ObtainingController;
 use GenshinTeam\Models\Obtaining;
+use GenshinTeam\Models\ObtainingModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -83,11 +84,11 @@ abstract class ObtainingControllerTestCase extends TestCase
     /**
      * Instancie un ObtainingController avec ses dépendances mockées ou par défaut.
      *
-     * @param Obtaining|null $model Modèle simulé ou réel du moyen d'obtention
+     * @param ObtainingModel|null $model Modèle simulé ou réel du moyen d'obtention
      * @param Renderer|null $renderer Rendu simulé ou réel
      * @return ObtainingController Instance du contrôleur prêt pour les tests
      */
-    protected function getController(?Obtaining $model = null, ?Renderer $renderer = null): ObtainingController
+    protected function getController(?ObtainingModel $model = null, ?Renderer $renderer = null): ObtainingController
     {
         $renderer = $renderer ?? new Renderer($this->viewPath);
 
@@ -95,7 +96,7 @@ abstract class ObtainingControllerTestCase extends TestCase
         $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
 
-        return new ObtainingController($renderer, $logger, $presenter, $session, $model ?? new Obtaining($this->pdo, $logger));
+        return new ObtainingController($renderer, $logger, $presenter, $session, $model ?? new ObtainingModel($this->pdo, $logger));
     }
 
     /**

@@ -4,10 +4,10 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Controllers\AbstractController;
+use GenshinTeam\Entities\User;
 use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use GenshinTeam\Validation\Validator;
 use Psr\Log\LoggerInterface;
@@ -24,7 +24,6 @@ use Psr\Log\LoggerInterface;
  */
 class RegisterController extends AbstractController
 {
-    use ExceptionHandlerTrait;
 
     /** @var SessionManager */
     protected SessionManager $session;
@@ -300,11 +299,21 @@ class RegisterController extends AbstractController
     }
 
     /**
-     * Connecte l'utilisateur nouvellement inscrit et le redirige.
+     * Connecte l'utilisateur et le redirige vers la page d'accueil.
+     *
+     * Récupère les données de l'utilisateur par son pseudo, crée un objet User,
+     * le stocke dans la session, puis redirige vers la page d'accueil.
+     *
+     * @param string $nickname Le pseudo de l'utilisateur
      */
-    private function loginAndRedirect(string $nickname): void
+    protected function loginAndRedirect(string $nickname): void
     {
-        $this->session->set('user', $nickname);
+        $userData = $this->userModel->getUserByNickname($nickname);
+        if ($userData !== null) {
+            $user = User::fromDatabase($userData);
+            $this->session->set('user', $user); // Objet complet
+        }
+
         $this->redirect('index');
     }
 }

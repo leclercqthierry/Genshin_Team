@@ -6,6 +6,7 @@ namespace Tests\TestCase;
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\StatController;
 use GenshinTeam\Models\Stat;
+use GenshinTeam\Models\StatModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -83,11 +84,11 @@ abstract class StatControllerTestCase extends TestCase
     /**
      * Instancie un StatController avec ses dépendances mockées ou par défaut.
      *
-     * @param Stat|null $model Modèle simulé ou réel du moyen d'obtention
+     * @param StatModel|null $model Modèle simulé ou réel du moyen d'obtention
      * @param Renderer|null $renderer Rendu simulé ou réel
      * @return StatController Instance du contrôleur prêt pour les tests
      */
-    protected function getController(?Stat $model = null, ?Renderer $renderer = null): StatController
+    protected function getController(?StatModel $model = null, ?Renderer $renderer = null): StatController
     {
         $renderer = $renderer ?? new Renderer($this->viewPath);
 
@@ -95,7 +96,7 @@ abstract class StatControllerTestCase extends TestCase
         $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
 
-        return new StatController($renderer, $logger, $presenter, $session, $model ?? new Stat($this->pdo, $logger));
+        return new StatController($renderer, $logger, $presenter, $session, $model ?? new StatModel($this->pdo, $logger));
     }
 
     /**

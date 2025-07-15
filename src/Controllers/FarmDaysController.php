@@ -4,10 +4,10 @@ declare (strict_types = 1);
 namespace GenshinTeam\Controllers;
 
 use GenshinTeam\Connexion\Database;
-use GenshinTeam\Models\FarmDays;
+use GenshinTeam\Entities\FarmDays;
+use GenshinTeam\Models\FarmDaysModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
-use GenshinTeam\Traits\ExceptionHandlerTrait;
 use GenshinTeam\Traits\HandleFormValidation;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use GenshinTeam\Validation\Validator;
@@ -26,7 +26,6 @@ class FarmDaysController extends AbstractCrudController
 {
 
     use HandleFormValidation;
-    use ExceptionHandlerTrait;
     /**
      * Constructeur principal du contrôleur.
      *
@@ -34,21 +33,21 @@ class FarmDaysController extends AbstractCrudController
      * @param LoggerInterface $logger Logger PSR-3 pour journalisation.
      * @param ErrorPresenterInterface $errorPresenter Présentateur d'erreurs.
      * @param SessionManager $session Gestionnaire de session pour l’état utilisateur.
-     * @param FarmDays|null $farmDaysModel (optionnel) instance du modèle injectée pour testabilité.
+     * @param FarmDaysModel|null $farmDaysModel (optionnel) instance du modèle injectée pour testabilité.
      */
     public function __construct(
         Renderer $renderer,
         LoggerInterface $logger,
         ErrorPresenterInterface $errorPresenter,
         SessionManager $session,
-        ?FarmDays $farmDaysModel = null
+        ?FarmDaysModel $farmDaysModel = null
     ) {
         parent::__construct(
             $renderer,
             $logger,
             $errorPresenter,
             $session,
-            $farmDaysModel ?: new FarmDays(Database::getInstance(), $logger)
+            $farmDaysModel ?: new FarmDaysModel(Database::getInstance(), $logger)
         );
 
     }
@@ -149,7 +148,8 @@ class FarmDaysController extends AbstractCrudController
      */
     private function processAdd(array $days): void
     {
-        $daysString = implode('/', $days);
+        $farmDays   = new FarmDays($days);
+        $daysString = $farmDays->getDays();
         $result     = $this->model->add($daysString);
 
         if ($result) {
@@ -230,8 +230,8 @@ class FarmDaysController extends AbstractCrudController
      */
     private function processEdit(int $id, array $days): void
     {
-        // Construction du format attendu : ex. "lundi/mercredi/vendredi"
-        $daysString = implode('/', $days);
+        $farmDays   = new FarmDays($days, $id);
+        $daysString = $farmDays->getDays();
 
         // Tentative de mise à jour via le modèle
         $result = $this->model->update($id, $daysString);

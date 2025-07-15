@@ -188,4 +188,22 @@ final class ValidatorTest extends TestCase
         $this->assertArrayHasKey('foo', $errors);
         $this->assertSame('Erreur personnalisée', $errors['foo']);
     }
+
+    /**
+     * Teste le comportement de la méthode sanitizeValue().
+     *
+     * Vérifie que la valeur retournée est bien un entier lorsque l'entrée est numérique,
+     * et que la valeur par défaut est utilisée lorsque l'entrée est non numérique ou invalide.
+     * Ce test couvre les cas typiques : chaîne numérique, float, chaîne non numérique, null, et booléen.
+     *
+     * @return void
+     */
+    public function testSanitizeValueReturnsIntegerWhenNumeric(): void
+    {
+        $this->assertSame(42, Validator::sanitizeValue('42'));
+        $this->assertSame(3, Validator::sanitizeValue(3.7));       // Cast implicite
+        $this->assertSame(0, Validator::sanitizeValue('abc'));     // Non numérique
+        $this->assertSame(99, Validator::sanitizeValue(null, 99)); // Default fallback
+        $this->assertSame(0, Validator::sanitizeValue(false));     // false n'est pas numérique
+    }
 }

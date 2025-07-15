@@ -5,7 +5,7 @@ namespace Tests\TestCase;
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\FarmDaysController;
-use GenshinTeam\Models\FarmDays;
+use GenshinTeam\Models\FarmDaysModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
  * Fournit :
  * - un Renderer pointant vers un répertoire temporaire de vues,
  * - une session isolée,
- * - une instance mockable de FarmDays,
+ * - une instance mockable de FarmDaysModel,
  * - une base SQLite en mémoire injectée dans Database,
  * - un nettoyage strict après chaque test (fichiers, constantes, DB).
  */
@@ -73,14 +73,15 @@ abstract class FarmDaysControllerTestCase extends TestCase
     /**
      * Fournit un contrôleur instancié avec dépendances isolées.
      */
-    protected function getController(?FarmDays $model = null): FarmDaysController
+    protected function getController(?FarmDaysModel $model = null): FarmDaysController
     {
         $renderer  = new Renderer($this->viewPath);
         $logger    = $this->createMock(LoggerInterface::class);
         $presenter = $this->createMock(ErrorPresenterInterface::class);
         $session   = new SessionManager();
+        $session->set('user', ['id_role' => 1]);
 
-        return new FarmDaysController($renderer, $logger, $presenter, $session, $model ?? $this->createMock(FarmDays::class));
+        return new FarmDaysController($renderer, $logger, $presenter, $session, $model ?? $this->createMock(FarmDaysModel::class));
     }
 
     /**

@@ -86,17 +86,17 @@ class User
     /**
      * Crée une instance de User à partir d'un tableau de données.
      *
-     * @param array<string, string> $data
+     * @param array{id_user: int, nickname: string, email: string, password: string, id_role: int} $data
      * @return self
      */
-    public static function fromArray(array $data): self
+    public static function fromDatabase(array $data): self
     {
         return new self(
-            (int) $data['id_user'],
+            $data['id_user'],
             $data['nickname'],
             $data['email'],
             $data['password'],
-            (int) $data['id_role']
+            $data['id_role']
         );
     }
 

@@ -4,6 +4,7 @@ declare (strict_types = 1);
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\StatController;
 use GenshinTeam\Models\Stat;
+use GenshinTeam\Models\StatModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
@@ -31,7 +32,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     private function assertHandleAddOutcome(bool $expectedSuccess): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->expects($this->once())
             ->method('add')
             ->with('Nouvelle stat')
@@ -86,7 +87,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     private function assertInvalidStatInput(string $input, string $expectedErrorMessage): void
     {
-        $model      = $this->createMock(Stat::class);
+        $model      = $this->createMock(StatModel::class);
         $controller = $this->getController($model);
         $controller->setCurrentRoute('add-stat');
 
@@ -162,7 +163,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     public function testHandleAddValidationFailureWithNonUniqueStat(): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('existsByName')->with('Doublon')->willReturn(true); // Simule que "Doublon" existe déjà
         $model->method('add')->willReturn(false);                          // L'ajout ne se fera pas
 
@@ -190,7 +191,7 @@ class StatControllerTest extends StatControllerTestCase
      * selon que la mise à jour du moyen d'obtention réussisse ou échoue.
      *
      * Cette méthode :
-     * - Mock un modèle Stat avec des retours prédéfinis pour les méthodes `get` et `update`
+     * - Mock un modèle StatModel avec des retours prédéfinis pour les méthodes `get` et `update`
      * - Simule une requête POST pour modifier un moyen d'obtention
      * - Invoque la méthode privée handleEdit via Reflection
      * - Vérifie la sortie et les messages d'erreur ou de succès générés
@@ -199,7 +200,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     private function assertHandleEditOutcome(bool $expectedSuccess): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('get')
             ->with(1)
             ->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
@@ -256,7 +257,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     public function testHandleEditValidationFailure(): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('get')
             ->with(1)
             ->willReturn(['id_stat' => 1, 'name' => 'Ancienne stat']);
@@ -296,7 +297,7 @@ class StatControllerTest extends StatControllerTestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = new Stat(Database::getInstance(), $logger);
+        $model          = new StatModel(Database::getInstance(), $logger);
 
         $controller = new class($renderer, $logger, $errorPresenter, $session, $model) extends StatController
         {
@@ -395,7 +396,7 @@ class StatControllerTest extends StatControllerTestCase
     public function testShowEditSelectForm(): void
     {
         // Création d'un mock de Stat avec une valeur de retour attendue
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('getAll')->willReturn([
             ['id_stat' => 1, 'name' => 'obt1'],
         ]);
@@ -425,7 +426,7 @@ class StatControllerTest extends StatControllerTestCase
         $_POST['edit_id'] = 42;
 
         // Mock du modèle retournant null pour ID inexistant
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('get')->with(42)->willReturn(null);
 
         // Mock du contrôleur pour intercepter l’appel à showEditSelectForm()
@@ -455,7 +456,7 @@ class StatControllerTest extends StatControllerTestCase
      *
      * Ce test :
      * - Simule une requête POST de suppression avec confirmation
-     * - Mock le modèle Stat pour que la méthode `delete` retourne true
+     * - Mock le modèle StatModel pour que la méthode `delete` retourne true
      * - Mock le Renderer pour afficher un message de succès
      * - Instancie le contrôleur avec les dépendances nécessaires
      * - Appelle la méthode privée handleDelete via Reflection
@@ -468,7 +469,7 @@ class StatControllerTest extends StatControllerTestCase
             'confirm_delete' => 1,
         ]);
 
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('delete')->with(1)->willReturn(true);
 
         $renderer = $this->createMock(Renderer::class);
@@ -505,7 +506,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     protected function assertProcessDeleteOutcome(bool $deletionSuccess, ?string $expectedOutput = null, bool $expectFallback = false): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('delete')->with(1)->willReturn($deletionSuccess);
 
         $renderer = $this->createMock(Renderer::class);
@@ -582,7 +583,7 @@ class StatControllerTest extends StatControllerTestCase
         bool $expectFallback = false,
         ?string $expectedRender = null
     ): void {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('get')->with($id)->willReturn($record);
 
         $renderer = $this->createMock(Renderer::class);
@@ -716,7 +717,7 @@ class StatControllerTest extends StatControllerTestCase
      * Construit un mock de contrôleur pour showList avec configuration selon le scénario.
      */
     private function buildControllerForShowList(
-        Stat $model,
+        StatModel $model,
         ?Renderer $renderer = null,
         bool $expectRenderDefault = false,
         ? \Throwable $expectHandleException = null
@@ -771,13 +772,13 @@ class StatControllerTest extends StatControllerTestCase
      * la liste des statistiques.
      *
      * Ce test :
-     * - Mock le modèle Stat pour retourner une liste prédéfinie
+     * - Mock le modèle StatModel pour retourner une liste prédéfinie
      * - Mock le Renderer pour capturer le rendu avec les bonnes données
      * - Assure que le rendu contient bien un élément avec le nom attendu
      */
     public function testShowList(): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('getAll')->willReturn([
             ['id_stat' => 1, 'name' => 'obt1'],
         ]);
@@ -820,7 +821,7 @@ class StatControllerTest extends StatControllerTestCase
     {
         $exception = new \RuntimeException('BOOM');
 
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('getAll')->willThrowException($exception);
 
         $controller = $this->buildControllerForShowList($model, null, expectHandleException: $exception);
@@ -841,7 +842,7 @@ class StatControllerTest extends StatControllerTestCase
      */
     public function testShowDeleteSelectFormRendersStatSelection(): void
     {
-        $model = $this->createMock(Stat::class);
+        $model = $this->createMock(StatModel::class);
         $model->method('getAll')->willReturn([
             ['id_stat' => 1, 'name' => 'attaque'],
             ['id_stat' => 2, 'name' => 'défense'],
@@ -851,7 +852,7 @@ class StatControllerTest extends StatControllerTestCase
         $renderer->method('render')
             ->willReturnCallback(function (string $template, array $data): string {
                 if ($template === 'partials/select-item') {
-                    // ⚙️ Teste les données envoyées à ce template
+                    // Teste les données envoyées à ce template
                     $this->assertSame('delete-stat', $data['action']);
                     $this->assertSame('delete_id', $data['fieldName']);
                     $this->assertSame('Supprimer', $data['buttonLabel']);

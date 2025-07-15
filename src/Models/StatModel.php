@@ -7,7 +7,7 @@ namespace GenshinTeam\Models;
  * Hérite des fonctionnalités CRUD de la classe AbstractCrudModel.
  * Utilise la table 'zell_stats' avec l'identifiant 'id_stat' et le champ de nom 'name'.
  */
-class Stat extends AbstractCrudModel
+class StatModel extends AbstractCrudModel
 {
     /**
      * @var string Nom de la table associée au modèle.

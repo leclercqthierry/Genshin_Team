@@ -84,16 +84,15 @@
                             >Galerie de teams</a
                         >
                     </li>
-                    <?php if (isset($_SESSION['user'])): ?><?php if
-    (isset($_SESSION['id_role']) && $_SESSION['id_role'] == 2):
-?>
+                    <?php if (isset($_SESSION['user'])): ?>
+<?php if (is_array($_SESSION['user']) && ($_SESSION['user']['id_role'] ?? null) === 2): ?>
+
                     <li class="px-0 py-2.5 text-center md:flex-1">
                         <a href="teams" class="hover:text-gray-400"
                             >Mes Teams</a
                         >
                     </li>
-                    <?php elseif (isset($_SESSION['id_role']) &&
-                        $_SESSION['id_role'] == 1): ?>
+                    <?php elseif (is_array($_SESSION['user']) && isset($_SESSION['user']['id_role']) && $_SESSION['user']['id_role'] == 1): ?>
                     <li class="px-0 py-2.5 text-center md:flex-1">
                         <a href="admin" class="hover:text-gray-400"
                             >Panneau admin</a

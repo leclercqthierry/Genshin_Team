@@ -84,7 +84,8 @@ class AdminControllerTest extends TestCase
         $this->assertIsString($output);
 
         $this->assertStringContainsString('Accès interdit', $output);
-        $this->assertStringContainsString('Vous n\'avez pas accès à cette page.', $output);
+        $this->assertStringContainsString('Vous n&#039;avez pas les droits pour accéder à cette page.', $output);
+
     }
 
     /**
@@ -106,7 +107,8 @@ class AdminControllerTest extends TestCase
         $this->assertIsString($output);
 
         $this->assertStringContainsString('Accès interdit', $output);
-        $this->assertStringContainsString('Vous n\'avez pas accès à cette page.', $output);
+        $this->assertStringContainsString('Vous n&#039;avez pas les droits pour accéder à cette page.', $output);
+
     }
 
     /**
@@ -117,8 +119,7 @@ class AdminControllerTest extends TestCase
     public function testAccessGrantedIfAdmin(): void
     {
         $session = new SessionManager();
-        $session->set('user', 'Admin');
-        $session->set('id_role', 1); // Admin
+        $session->set('user', ['id_role' => 1]);
 
         ob_start();
         $controller = $this->getController($session);
@@ -139,8 +140,7 @@ class AdminControllerTest extends TestCase
     public function testHandleRequestHandlesException(): void
     {
         $session = new SessionManager();
-        $session->set('user', 'Admin');
-        $session->set('id_role', 1);
+        $session->set('user', ['id_role' => 1]);
 
         // Mock Renderer pour lancer une exception
         $renderer = $this->getMockBuilder(Renderer::class)

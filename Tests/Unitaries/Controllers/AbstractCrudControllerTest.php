@@ -129,6 +129,43 @@ class DummyCrudController extends AbstractCrudController
     }
 }
 
+class DummyCrudControllerBis extends DummyCrudController
+{
+    public ?string $forbiddenHtml = null;
+
+    protected function renderDefault(): void
+    {
+        // Simule un rendu minimal comme dans default.php
+        // echo '<html>' . ($this->data['title'] ?? '') . ($this->data['content'] ?? '') . '</html>';
+        echo '<html>';
+        echo is_string($this->data['title'] ?? null) ? $this->data['title'] : '';
+        echo is_string($this->data['content'] ?? null) ? $this->data['content'] : '';
+        echo '</html>';
+
+    }
+
+    protected function renderForbidden(string $message = "Vous n'avez pas accès à cette page."): void
+    {
+        http_response_code(403);
+        $this->addData('title', 'Accès interdit');
+        $this->addData('content', '<div role="alert">' . htmlspecialchars($message) . '</div>');
+
+        ob_start();
+        parent::renderDefault();
+        $this->forbiddenHtml = ob_get_clean() ?: null;
+    }
+
+    public function triggerAdminCheck(): bool
+    {
+        return $this->checkAdminAccess();
+    }
+
+    public function getRenderedForbidden(): ?string
+    {
+        return $this->forbiddenHtml;
+    }
+}
+
 /**
  * Classe de test pour DummyCrudController.
  *
@@ -170,7 +207,8 @@ class AbstractCrudControllerTest extends TestCase
         $logger         = $this->createMock(LoggerInterface::class);
         $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
         $session        = new SessionManager();
-        $model          = $this->createMock(CrudModelInterface::class);
+        $session->set('user', ['id_role' => 1]);
+        $model = $this->createMock(CrudModelInterface::class);
 
         $this->controller = new DummyCrudController(
             $renderer,
@@ -783,6 +821,59 @@ class AbstractCrudControllerTest extends TestCase
         );
 
         $this->assertTrue($called, 'Le formulaire de confirmation a bien été affiché');
+    }
+
+    /**
+     * Vérifie que checkAdminAccess() refuse l’accès avec un rôle invalide et que handleRequest() est interrompu.
+     *
+     * Ce test initialise un contrôleur avec une session contenant un utilisateur non administrateur (id_role = 2).
+     * Il appelle checkAdminAccess() pour valider le retour false, puis handleRequest() pour s'assurer que la logique métier
+     * n'est pas exécutée suite à ce refus. Le test capture également le HTML généré par renderForbidden().
+     *
+     * Contrôles effectués :
+     * - Retour false de checkAdminAccess()
+     * - Code HTTP 403 correctement défini
+     * - Affichage du message d'accès interdit
+     * - Aucune méthode CRUD appelée dans le contrôleur (calls vide)
+     *
+     * @return void
+     */
+    public function testCheckAdminAccessTriggersForbiddenRender(): void
+    {
+        $renderer       = new Renderer($this->viewPath);
+        $logger         = $this->createMock(LoggerInterface::class);
+        $errorPresenter = $this->createMock(ErrorPresenterInterface::class);
+        $session        = new SessionManager();
+        $session->set('user', ['id_role' => 2]);
+        $model = $this->createMock(CrudModelInterface::class);
+
+        $controller = new DummyCrudControllerBis(
+            $renderer,
+            $logger,
+            $errorPresenter,
+            $session,
+            $model
+        );
+
+        $result = $controller->triggerAdminCheck();
+        $html   = $controller->getRenderedForbidden();
+
+        $this->assertFalse($result);
+        $this->assertSame(403, http_response_code());
+
+        $this->assertNotNull($html);
+        $this->assertStringContainsString('Accès interdit', $html);
+        $this->assertStringContainsString('<div role="alert">Vous n&#039;avez pas accès à cette page.</div>', $html);
+
+        $controller->setCurrentRoute('add-entity'); // Simule une route valide
+
+        ob_start(); // Capture pour éviter l’affichage parasite
+        $controller->handleRequest();
+        ob_end_clean();
+
+        // Aucune méthode CRUD ne doit avoir été appelée
+        $this->assertEmpty($controller->calls);
+
     }
 
 }

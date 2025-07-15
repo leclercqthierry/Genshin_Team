@@ -29,11 +29,11 @@ class LogoutController extends AbstractController
      */
     protected SessionManager $session;
 
-    /** @phpstan-ignore-next-line property.onlyWritten */
-    private LoggerInterface $logger;
+    /** @var LoggerInterface $logger Logger PSR-3 */
+    protected LoggerInterface $logger;
 
-    /** @phpstan-ignore-next-line property.onlyWritten */
-    private ErrorPresenterInterface $errorPresenter;
+    /** @var ErrorPresenterInterface $errorPresenter Gestionnaire d'affichage des erreurs */
+    protected ErrorPresenterInterface $errorPresenter;
 
     /**
      * Initialise le contrôleur de déconnexion avec ses dépendances.

@@ -8,7 +8,7 @@ namespace GenshinTeam\Models;
  * Elle est associée à la table 'zell_obtaining', avec l'identifiant principal 'id_obtaining'
  * et le champ 'name' pour désigner le nom de l'obtention.
  */
-class Obtaining extends AbstractCrudModel
+class ObtainingModel extends AbstractCrudModel
 {
     /**
      * @var string Nom de la table associée au modèle.

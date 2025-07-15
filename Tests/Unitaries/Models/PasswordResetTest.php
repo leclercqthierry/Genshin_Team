@@ -272,11 +272,11 @@ class PasswordResetTest extends TestCase
         $this->pdoMock->method('prepare')->willReturn($stmt);
         $stmt->method('execute')->with([':email' => 'user@example.com']);
         $stmt->method('fetch')->willReturn([
-            'id_user'  => '1',
+            'id_user'  => 1,
             'nickname' => 'User',
             'email'    => 'user@example.com',
             'password' => 'hashedpassword',
-            'id_role'  => '2',
+            'id_role'  => 2,
         ]);
 
         $mailerMock = $this->createMock(MailSenderInterface::class); // redéfini juste pour ce test

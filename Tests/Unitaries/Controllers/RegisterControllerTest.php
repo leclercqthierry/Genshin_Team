@@ -3,12 +3,35 @@ declare (strict_types = 1);
 
 use GenshinTeam\Connexion\Database;
 use GenshinTeam\Controllers\RegisterController;
+use GenshinTeam\Entities\User;
 use GenshinTeam\Models\UserModel;
 use GenshinTeam\Renderer\Renderer;
 use GenshinTeam\Session\SessionManager;
 use GenshinTeam\Utils\ErrorPresenterInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+
+class DummyRegisterController extends RegisterController
+{
+    /** @var string|null */
+    public ?string $redirectedTo = null;
+
+    public function callLoginAndRedirect(string $nickname): void
+    {
+        $this->loginAndRedirect($nickname);
+    }
+
+    protected function redirect(string $target): void
+    {
+        $this->redirectedTo = $target; // capture sans rediriger
+    }
+
+    public function getRedirectedUrl(): ?string
+    {
+        return $this->redirectedTo;
+    }
+
+}
 
 /**
  * Tests fonctionnels du RegisterController.
@@ -107,6 +130,17 @@ class RegisterControllerTest extends TestCase
             ->setConstructorArgs([$renderer, $logger, $presenter, $session, $userModel])
             ->onlyMethods(['redirect'])
             ->getMock();
+    }
+
+    private function getDummyRegisterController(?SessionManager $session = null, ?UserModel $userModel = null): DummyRegisterController
+    {
+        $renderer  = new Renderer($this->viewPath);
+        $logger    = $this->createMock(LoggerInterface::class);
+        $presenter = $this->createMock(ErrorPresenterInterface::class);
+        $session ??= new SessionManager();
+        $userModel ??= $this->createMock(UserModel::class);
+
+        return new DummyRegisterController($renderer, $logger, $presenter, $session, $userModel);
     }
 
     /**
@@ -459,6 +493,28 @@ class RegisterControllerTest extends TestCase
 
         // Tu peux ajouter une assertion vide ou une ligne de vérification basique
         $this->expectNotToPerformAssertions();
+    }
+
+    public function testLoginAndRedirectStoresUserIfFound(): void
+    {
+        $userData = [
+            'id_user'  => 1,
+            'nickname' => 'yae',
+            'email'    => 'test@live.fr',
+            'password' => 'truc',
+            'id_role'  => 2]; // données simulées
+        $userModel = $this->createMock(UserModel::class);
+        $userModel->method('getUserByNickname')->with('yae')->willReturn($userData);
+
+        $session    = new SessionManager();
+        $controller = $this->getDummyRegisterController($session, $userModel);
+
+        $controller->callLoginAndRedirect('yae');
+
+        $user = $session->get('user');
+
+        $this->assertInstanceOf(User::class, $user);
+        $this->assertSame('yae', $user->getNickname());
     }
 
 }
